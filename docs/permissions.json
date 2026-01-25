@@ -1,0 +1,86 @@
+[
+  {
+    "permission_code": "applications",
+    "bit_index": 0,
+    "description": "子系统配置模块",
+    "usage": "允许访问applications"
+  },
+  {
+    "permission_code": "applications:sidebar",
+    "bit_index": 2,
+    "description": "显示侧边栏",
+    "usage": "在侧边栏显示applications"
+  },
+  {
+    "permission_code": "applications:new",
+    "bit_index": 3,
+    "description": "新建子系统",
+    "usage": "允许点击新建按钮创建新子系统"
+  },
+  {
+    "permission_code": "applications:manage",
+    "bit_index": 4,
+    "description": "子系统管理",
+    "usage": "允许点击manage，管理对应的子系统"
+  },
+  {
+    "permission_code": "applications:manage:permissions:new",
+    "bit_index": 5,
+    "description": "新增权限",
+    "usage": "允许点击新建按钮新建权限"
+  },
+  {
+    "permission_code": "applications:manage:permissions:edit",
+    "bit_index": 6,
+    "description": "修改权限",
+    "usage": "允许点击编辑按钮编辑权限"
+  },
+  {
+    "permission_code": "applications:manage:permissions:delete",
+    "bit_index": 7,
+    "description": "删除权限",
+    "usage": "允许点击删除按钮删除权限"
+  },
+  {
+    "permission_code": "applications:manage:roles",
+    "bit_index": 8,
+    "description": "角色管理",
+    "usage": "允许查看roles tab"
+  },
+  {
+    "permission_code": "applications:manage:permissions",
+    "bit_index": 9,
+    "description": "权限管理",
+    "usage": "允许查看permissions tab"
+  },
+  {
+    "permission_code": "applications:manage:roles:new",
+    "bit_index": 10,
+    "description": "新增角色",
+    "usage": "允许点击新建按钮新建角色"
+  },
+  {
+    "permission_code": "applications:manage:roles:edit",
+    "bit_index": 11,
+    "description": "为角色分配权限",
+    "usage": "允许点击修改按钮修改角色对应的权限"
+  },
+  {
+    "permission_code": "users",
+    "bit_index": 12,
+    "description": "用户管理模块",
+    "usage": "允许访问User Management"
+  },
+  {
+    "permission_code": "users:new",
+    "bit_index": 13,
+    "description": "新增用户",
+    "usage": "允许点击新建按钮创建用户"
+  },
+  {
+    "permission_code": "users:assignRole",
+    "bit_index": 14,
+    "description": "给用户分配角色",
+    "usage": "允许点击修改按钮为用户分配角色"
+  }
+]

@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UniAuth Admin Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --bg-color: #f3f4f6;
+            --sidebar-bg: #1f2937;
+            --sidebar-hover: #374151;
+            --text-color: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+            --card-bg: #ffffff;
+            --danger-color: #ef4444;
+            --success-color: #10b981;
+            --disabled-color: #9ca3af;
+            --disabled-bg: #e5e7eb;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            background: #111827;
+        }
+
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: 0.025em;
+        }
+
+        .sidebar nav {
+            flex: 1;
+            padding: 16px 0;
+        }
+
+        .sidebar a {
+            padding: 12px 24px;
+            color: #9ca3af;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+        }
+
+        .sidebar a:hover, .sidebar a.active {
+            background: var(--sidebar-hover);
+            color: white;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .sidebar a i {
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* Disabled Sidebar Link */
+        .sidebar a.disabled-link {
+            pointer-events: none;
+            color: var(--disabled-color);
+            background: transparent;
+            border-left-color: transparent;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        /* Content */
+        .content {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            margin: 0;
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 10px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #f9fafb;
+            font-weight: 500;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background-color: #f9fafb;
+        }
+
+        /* Forms */
+        input, select, textarea {
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-right: 10px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Buttons */
+        button {
+            padding: 10px 18px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button.secondary {
+            background-color: white;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+
+        button.secondary:hover {
+            background-color: #f9fafb;
+        }
+
+        button.danger {
+            background-color: var(--danger-color);
+        }
+
+        button.danger:hover {
+            background-color: #dc2626;
+        }
+
+        button.sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+
+        /* Disabled Button Style */
+        button:disabled, button.disabled-btn {
+            background-color: var(--disabled-bg);
+            color: var(--disabled-color);
+            cursor: not-allowed;
+            border-color: var(--border-color);
+        }
+
+        button:disabled:hover, button.disabled-btn:hover {
+            background-color: var(--disabled-bg);
+        }
+
+        /* Utility */
+        .hidden {
+            display: none !important;
+        }
+
+        .flex {
+            display: flex;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .gap-2 {
+            gap: 8px;
+        }
+
+        .mt-4 {
+            margin-top: 16px;
+        }
+
+        .mb-4 {
+            margin-bottom: 16px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 24px;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--text-color);
+        }
+
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        /* Disabled Tab */
+        .tab.disabled-tab {
+            color: var(--disabled-color);
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* Tree View for Permissions */
+        .tree-node {
+            margin-left: 20px;
+            padding: 4px 0;
+        }
+
+        .tree-content {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .tree-content:hover {
+            background: #f3f4f6;
+        }
+
+        .tree-content .actions {
+            margin-left: auto;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .tree-content:hover .actions {
+            opacity: 1;
+        }
+
+        .tree-toggler {
+            cursor: pointer;
+            width: 20px;
+            display: inline-block;
+            text-align: center;
+            user-select: none;
+        }
+
+        .tree-children.collapsed {
+            display: none;
+        }
+
+        /* Select All Link */
+        .select-all-link {
+            font-size: 0.8rem;
+            color: var(--primary-color);
+            cursor: pointer;
+            margin-left: 12px;
+            text-decoration: underline;
+        }
+
+        .select-all-link.disabled {
+            color: var(--disabled-color) !important;
+            cursor: not-allowed;
+            text-decoration: none;
+            pointer-events: none;
+        }
+
+        /* Modals */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal-content {
+            background: white;
+            padding: 32px;
+            border-radius: 12px;
+            width: 480px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+
+        .close {
+            cursor: pointer;
+            font-size: 24px;
+            color: var(--text-muted);
+        }
+
+        .close:hover {
+            color: var(--text-color);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Role Editor Page */
+        .role-editor-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .role-editor-header {
+            margin-bottom: 20px;
+        }
+
+        .role-perm-group {
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .role-perm-group-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .role-perm-item {
+            margin-bottom: 8px;
+            margin-left: 12px;
+        }
+
+        .role-badge {
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            margin-right: 4px;
+            display: inline-block;
+            margin-bottom: 2px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-header">
+        <h2>UniAuth Admin</h2>
+    </div>
+    <nav>
+        <a href="#" onclick="showSection('apps'); return false;" class="active" id="nav-apps"
+           data-permission="applications">Applications</a>
+        <a href="#" onclick="showSection('users'); return false;" id="nav-users" data-permission="users">User
+            Management</a>
+    </nav>
+    <div style="padding: 20px;">
+        <button class="secondary sm" onclick="logout()" style="width: 100%">Logout</button>
+    </div>
+</div>
+
+<div class="content">
+    <div class="container">
+        <!-- Apps Section -->
+        <div id="apps-section">
+            <div class="card" id="app-list-card">
+                <div class="card-header">
+                    <h3 class="card-title">Applications</h3>
+                    <button onclick="openCreateAppModal()" data-permission="applications:new">+ New App</button>
+                </div>
+                <table id="appsTable">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div id="app-details" class="hidden">
+                <div class="mb-4">
+                    <button class="secondary sm" onclick="backToApps()">← Back to Apps</button>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title" id="selectedAppName">App Details</h3>
+                        <input type="hidden" id="currentAppId">
+                    </div>
+
+                    <div class="tabs">
+                        <div class="tab active" onclick="switchTab('permissions')" id="tab-permissions"
+                             data-permission="applications:manage:permissions">Permissions
+                        </div>
+                        <div class="tab" onclick="switchTab('roles')" id="tab-roles"
+                             data-permission="applications:manage:roles">Roles
+                        </div>
+                    </div>
+
+                    <!-- Permissions Tab -->
+                    <div id="tab-content-permissions">
+                        <div class="flex justify-between items-center mb-4">
+                            <div class="text-muted">Manage hierarchical permissions for this application.</div>
+                            <div class="flex gap-2">
+                                <button class="secondary" onclick="openImportPermModal()"
+                                        data-permission="applications:manage:permissions:new">Import JSON
+                                </button>
+                                <button onclick="openCreatePermModal()"
+                                        data-permission="applications:manage:permissions:new">+ Add Permission
+                                </button>
+                            </div>
+                        </div>
+                        <div id="permsTree" class="tree-container">
+                            <!-- Tree content will go here -->
+                        </div>
+                    </div>
+
+                    <!-- Roles Tab -->
+                    <div id="tab-content-roles" class="hidden">
+                        <div class="flex justify-between items-center mb-4">
+                            <div class="text-muted">Define roles and assign permissions.</div>
+                            <button onclick="openCreateRoleModal()" data-permission="applications:manage:roles:new">+
+                                Create Role
+                            </button>
+                        </div>
+                        <table id="rolesTable">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Data Scope</th>
+                                <th>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Role Editor Section (New Page Style) -->
+        <div id="role-editor-section" class="hidden">
+            <div class="mb-4">
+                <button class="secondary sm" onclick="backToRoles()">← Back to Roles</button>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Edit Role: <span id="editRoleNameDisplay"></span></h3>
+                    <input type="hidden" id="editingRoleId">
+                </div>
+
+                <div class="form-group" style="max-width: 400px;">
+                    <label>Data Scope</label>
+                    <select id="roleDataScopeSelect" onchange="toggleCustomScope()">
+                        <option value="1">Self (Only own data)</option>
+                        <option value="2">Department (Same Dept)</option>
+                        <option value="3">All (All Data)</option>
+                        <option value="4">Custom (Specific Depts)</option>
+                    </select>
+                </div>
+
+                <div id="customScopeConfig" class="form-group hidden" style="max-width: 400px;">
+                    <label>Custom Scope Config (JSON/IDs)</label>
+                    <textarea id="roleCustomConfig" rows="3" placeholder='e.g. {"dept_ids": [1, 2, 3]}'></textarea>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 24px 0;">
+
+                <h4 class="mb-4">Permissions</h4>
+                <div id="rolePermsEditor" class="role-editor-container">
+                    <!-- Permissions Checkboxes -->
+                </div>
+
+                <div class="mt-4 flex justify-between">
+                    <div></div>
+                    <button onclick="saveRoleChanges()">Save Changes</button>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Users Section -->
+        <div id="users-section" class="hidden">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Users</h3>
+                    <button onclick="openCreateUserModal()" data-permission="users:new">+ Create User</button>
+                </div>
+                <table id="usersTable">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Roles</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+
+<!-- Create App Modal -->
+<div id="createAppModal" class="hidden modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Create Application</h3>
+            <span class="close" onclick="closeModal('createAppModal')">&times;</span>
+        </div>
+        <div class="form-group">
+            <label>App Code</label>
+            <input type="text" id="newAppCode" placeholder="e.g. crm-system">
+        </div>
+        <div class="form-group">
+            <label>App Name</label>
+            <input type="text" id="newAppName" placeholder="e.g. CRM System">
+        </div>
+        <button onclick="createApp()" style="width: 100%">Create App</button>
+    </div>
+</div>
+
+<!-- Permission Modal (Create/Edit) -->
+<div id="permModal" class="hidden modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="permModalTitle">Add Permission</h3>
+            <span class="close" onclick="closeModal('permModal')">&times;</span>
+        </div>
+        <input type="hidden" id="permId">
+        <div class="form-group">
+            <label>Permission Code</label>
+            <input type="text" id="permCode" placeholder="e.g. user:edit">
+            <small style="color: #6b7280; display: block; margin-top: 4px;">Use colons to create hierarchy (e.g.
+                resource:action)</small>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="permDesc" placeholder="Description">
+        </div>
+        <button onclick="savePermission()" style="width: 100%">Save</button>
+    </div>
+</div>
+
+<!-- Import Permission Modal -->
+<div id="importPermModal" class="hidden modal">
+    <div class="modal-content" style="width: 600px;">
+        <div class="modal-header">
+            <h3>Import Permissions (JSON)</h3>
+            <span class="close" onclick="closeModal('importPermModal')">&times;</span>
+        </div>
+        <div class="form-group">
+            <label>Paste JSON here</label>
+            <textarea id="importPermJson" rows="10" placeholder='[
+  {
+    "permission_code": "users:view",
+    "description": "View Users",
+    "bit_index": 10
+  }
+]'></textarea>
+            <small style="color: #6b7280; display: block; margin-top: 4px;">
+                Format: Array of objects with <code>permission_code</code>, <code>description</code>, and optional <code>bit_index</code>.
+            </small>
+        </div>
+        <button onclick="importPermissions()" style="width: 100%">Import</button>
+    </div>
+</div>
+
+<!-- Create Role Modal -->
+<div id="createRoleModal" class="hidden modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Create Role</h3>
+            <span class="close" onclick="closeModal('createRoleModal')">&times;</span>
+        </div>
+        <div class="form-group">
+            <label>Role Name</label>
+            <input type="text" id="newRoleName" placeholder="e.g. Admin">
+        </div>
+        <button onclick="createRole()" style="width: 100%">Create Role</button>
+    </div>
+</div>
+
+<!-- Create User Modal -->
+<div id="createUserModal" class="hidden modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Create User</h3>
+            <span class="close" onclick="closeModal('createUserModal')">&times;</span>
+        </div>
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="newUserName" placeholder="jdoe">
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="newUserEmail" placeholder="jdoe@example.com">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="newUserPass" placeholder="********">
+        </div>
+        <button onclick="createUser()" style="width: 100%">Create User</button>
+    </div>
+</div>
+
+<!-- User Assign Role Modal -->
+<div id="assignModal" class="hidden modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Assign Role to User</h3>
+            <span class="close" onclick="closeModal('assignModal')">&times;</span>
+        </div>
+        <input type="hidden" id="assignUserId">
+        <div class="form-group">
+            <label>Application</label>
+            <select id="assignAppSelect" onchange="loadRolesForAssign()">
+                <option>Select App</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Role</label>
+            <select id="assignRoleSelect">
+                <option>Select Role</option>
+            </select>
+        </div>
+        <button onclick="assignRole()" style="width: 100%">Save Assignment</button>
+    </div>
+</div>
+
+<script>
+    // --- Global State ---
+    let currentUserMask = 0n;
+    let permissionDict = {}; // code -> bit_index
+
+    // --- Initialization ---
+    (async function init() {
+        try {
+            // 1. Check Login & Get Mask
+            const maskRes = await api('/api/v1/auth/my-mask?app_code=uniauth-admin');
+            if (!maskRes || !maskRes.data) {
+                // Redirect handled in api()
+                return;
+            }
+            currentUserMask = BigInt('0x' + maskRes.data.mask);
+
+            // 2. Get Permission Dictionary
+            const metaRes = await api('/api/v1/meta/permissions?app_code=uniauth-admin');
+            if (metaRes && metaRes.data) {
+                metaRes.data.forEach(p => {
+                    permissionDict[p.key] = p.idx;
+                });
+            }
+
+            // 3. Apply Permissions to UI
+            applyPermissions();
+
+            // 4. Load Initial Data
+            loadApps();
+        } catch (e) {
+            console.error("Init failed", e);
+            const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = '/?redirect=' + returnUrl;
+        }
+    })();
+
+    function hasPermission(permCode) {
+        const index = permissionDict[permCode];
+        if (index === undefined) return false; // Permission not known, assume false or handle as needed
+        const requiredBit = 1n << BigInt(index);
+        return (currentUserMask & requiredBit) === requiredBit;
+    }
+
+    function applyPermissions() {
+        const elements = document.querySelectorAll('[data-permission]');
+        elements.forEach(el => {
+            const permCode = el.getAttribute('data-permission');
+            if (!hasPermission(permCode)) {
+                disableElement(el);
+            } else {
+                enableElement(el);
+            }
+        });
+    }
+
+    function disableElement(el) {
+        if (el.tagName === 'BUTTON') {
+            el.disabled = true;
+            el.classList.add('disabled-btn');
+        } else {
+            el.classList.add('disabled-link');
+            if (el.classList.contains('tab')) el.classList.add('disabled-tab');
+        }
+    }
+
+    function enableElement(el) {
+        if (el.tagName === 'BUTTON') {
+            el.disabled = false;
+            el.classList.remove('disabled-btn');
+        } else {
+            el.classList.remove('disabled-link');
+            if (el.classList.contains('tab')) el.classList.remove('disabled-tab');
+        }
+        el.classList.remove('hidden');
+    }
+
+    // --- Navigation ---
+    function showSection(id) {
+        console.log(id)
+        // Check permission again just in case
+        const navEl = document.getElementById('nav-' + id);
+
+        if (navEl && navEl.classList.contains('disabled-link')) return;
+
+        document.getElementById('apps-section').classList.add('hidden');
+        document.getElementById('users-section').classList.add('hidden');
+        document.getElementById('role-editor-section').classList.add('hidden');
+        document.getElementById(id + '-section').classList.remove('hidden');
+
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        document.getElementById('nav-' + id).classList.add('active');
+
+        if (id === 'apps') {
+            document.getElementById('app-list-card').classList.remove('hidden');
+            document.getElementById('app-details').classList.add('hidden');
+            loadApps();
+        }
+        if (id === 'users') loadUsers();
+    }
+
+    function backToApps() {
+        document.getElementById('app-list-card').classList.remove('hidden');
+        document.getElementById('app-details').classList.add('hidden');
+        loadApps();
+    }
+
+    function backToRoles() {
+        document.getElementById('role-editor-section').classList.add('hidden');
+        document.getElementById('apps-section').classList.remove('hidden');
+        // Ensure we are on the roles tab
+        switchTab('roles');
+    }
+
+    function switchTab(tab) {
+        const tabEl = document.getElementById('tab-' + tab);
+        if (tabEl && tabEl.classList.contains('disabled-tab')) return;
+
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-' + tab).classList.add('active');
+
+        document.getElementById('tab-content-permissions').classList.add('hidden');
+        document.getElementById('tab-content-roles').classList.add('hidden');
+        document.getElementById('tab-content-' + tab).classList.remove('hidden');
+
+        const appId = document.getElementById('currentAppId').value;
+        if (tab === 'permissions') loadPermissions(appId);
+        if (tab === 'roles') loadRoles(appId);
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.add('hidden');
+    }
+
+    async function logout() {
+        await api('/api/v1/auth/logout', 'POST');
+        window.location.href = '/';
+    }
+
+    // --- API Helpers ---
+    async function api(url, method = 'GET', body = null) {
+        const opts = {method, headers: {'Content-Type': 'application/json'}};
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(url, opts);
+        if (res.status === 401 || res.status === 403) {
+            // alert('Unauthorized or Forbidden');
+            // Let the caller handle it or redirect
+            if (res.status === 401) {
+                const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+                window.location.href = '/?redirect=' + returnUrl;
+            }
+            return null;
+        }
+        return res.json();
+    }
+
+    // --- Apps ---
+    async function loadApps() {
+        const res = await api('/api/v1/admin/apps');
+        if (!res) return;
+        const tbody = document.querySelector('#appsTable tbody');
+        tbody.innerHTML = '';
+
+        const canManage = hasPermission('applications:manage');
+
+        res.data.forEach(app => {
+            const manageBtn = canManage
+                ? `<button class="sm" onclick="selectApp(${app.id}, '${app.name}')">Manage</button>`
+                : `<button class="sm disabled-btn" disabled>Manage</button>`;
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${app.id}</td>
+                    <td><span style="font-family: monospace; background: #e5e7eb; padding: 2px 6px; border-radius: 4px;">${app.code}</span></td>
+                    <td>${app.name}</td>
+                    <td>${manageBtn}</td>
+                </tr>`;
+        });
+    }
+
+    function openCreateAppModal() {
+        document.getElementById('newAppCode').value = '';
+        document.getElementById('newAppName').value = '';
+        document.getElementById('createAppModal').classList.remove('hidden');
+    }
+
+    async function createApp() {
+        const code = document.getElementById('newAppCode').value;
+        const name = document.getElementById('newAppName').value;
+        await api('/api/v1/admin/apps', 'POST', {code, name});
+        closeModal('createAppModal');
+        await loadApps();
+    }
+
+    async function selectApp(id, name) {
+        document.getElementById('app-list-card').classList.add('hidden');
+        document.getElementById('app-details').classList.remove('hidden');
+        document.getElementById('selectedAppName').innerText = name;
+        document.getElementById('currentAppId').value = id;
+
+        // Default to permissions tab if allowed, else roles, else nothing
+        if (hasPermission('applications:manage:permissions')) {
+            switchTab('permissions');
+        } else if (hasPermission('applications:manage:roles')) {
+            switchTab('roles');
+        }
+    }
+
+    // --- Permissions (Tree View) ---
+    let currentPermissions = [];
+
+    async function loadPermissions(appId) {
+        const res = await api(`/api/v1/admin/apps/${appId}/permissions`);
+        if (!res) return;
+        currentPermissions = res.data || [];
+        renderPermissionTree(currentPermissions);
+    }
+
+    function renderPermissionTree(perms) {
+        const container = document.getElementById('permsTree');
+        container.innerHTML = '';
+
+        // Build hierarchy based on colons in permission_code
+        const tree = {};
+
+        perms.forEach(p => {
+            const parts = p.permission_code.split(':');
+            let currentLevel = tree;
+            parts.forEach((part, index) => {
+                if (!currentLevel[part]) {
+                    currentLevel[part] = {
+                        _children: {},
+                        _data: (index === parts.length - 1) ? p : null
+                    };
+                } else if (index === parts.length - 1) {
+                    currentLevel[part]._data = p;
+                }
+                currentLevel = currentLevel[part]._children;
+            });
+        });
+
+        const canEdit = hasPermission('applications:manage:permissions:edit');
+        const canDelete = hasPermission('applications:manage:permissions:delete');
+
+        function createNodeHtml(name, node, level = 0, path = '') {
+            let html = '';
+            const padding = level * 24;
+            const isLeaf = Object.keys(node._children).length === 0;
+            const data = node._data;
+            const currentPath = path ? path + '-' + name : name;
+
+            let actionsHtml = '';
+            if (data) {
+                const editBtn = canEdit
+                    ? `<button class="sm secondary" onclick="openEditPermModal(${data.id})">Edit</button>`
+                    : `<button class="sm secondary disabled-btn" disabled>Edit</button>`;
+                const deleteBtn = canDelete
+                    ? `<button class="sm danger" onclick="deletePermission(${data.id})">Delete</button>`
+                    : `<button class="sm danger disabled-btn" disabled>Delete</button>`;
+                actionsHtml = editBtn + ' ' + deleteBtn;
+            }
+
+            html += `
+                <div class="tree-node">
+                    <div class="tree-content" style="padding-left: ${padding}px"  onclick="toggleTree('${currentPath}')">
+                        <span class="tree-toggler">
+                            ${!isLeaf ? '▼' : '•'}
+                        </span>
+                        <span style="font-weight: 500;">${name}</span>
+                        ${data ? `<span style="margin-left: 12px; color: var(--text-muted); font-size: 0.85rem;">(${data.description || 'No desc'})</span>` : ''}
+                        ${data ? `<span style="margin-left: 12px; font-family: monospace; background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">Index: ${data.bit_index}</span>` : ''}
+
+                        <div class="actions">
+                            ${actionsHtml}
+                        </div>
+                    </div>
+                    <div id="children-${currentPath}" class="tree-children">
+                        ${Object.keys(node._children).map(key => createNodeHtml(key, node._children[key], level + 1, currentPath)).join('')}
+                    </div>
+                </div>
+            `;
+            return html;
+        }
+
+        Object.keys(tree).forEach(key => {
+            container.innerHTML += createNodeHtml(key, tree[key]);
+        });
+
+        if (perms.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">No permissions found. Add one to get started.</div>';
+        }
+    }
+
+    function toggleTree(path) {
+        const children = document.getElementById('children-' + path);
+        const toggler = children.previousElementSibling.querySelector('.tree-toggler');
+        if (children.classList.contains('collapsed')) {
+            children.classList.remove('collapsed');
+            if (toggler.innerText === '▶') toggler.innerText = '▼';
+        } else {
+            children.classList.add('collapsed');
+            if (toggler.innerText === '▼') toggler.innerText = '▶';
+        }
+    }
+
+    function openCreatePermModal() {
+        document.getElementById('permModalTitle').innerText = 'Add Permission';
+        document.getElementById('permId').value = '';
+        document.getElementById('permCode').value = '';
+        document.getElementById('permDesc').value = '';
+        document.getElementById('permModal').classList.remove('hidden');
+    }
+
+    function openImportPermModal() {
+        document.getElementById('importPermJson').value = '';
+        document.getElementById('importPermModal').classList.remove('hidden');
+    }
+
+    async function importPermissions() {
+        const appId = document.getElementById('currentAppId').value;
+        const jsonStr = document.getElementById('importPermJson').value;
+        let data;
+        try {
+            data = JSON.parse(jsonStr);
+        } catch (e) {
+            alert('Invalid JSON format');
+            return;
+        }
+
+        if (!Array.isArray(data)) {
+            alert('JSON must be an array of objects');
+            return;
+        }
+
+        const res = await api(`/api/v1/admin/apps/${appId}/permissions/batch`, 'POST', data);
+        if (res) {
+            alert('Import successful');
+            closeModal('importPermModal');
+            await loadPermissions(appId);
+        }
+    }
+
+    function openEditPermModal(id) {
+        event.stopPropagation();
+        const perm = currentPermissions.find(p => p.id === id);
+        if (!perm) return;
+        document.getElementById('permModalTitle').innerText = 'Edit Permission';
+        document.getElementById('permId').value = perm.id;
+        document.getElementById('permCode').value = perm.permission_code;
+        document.getElementById('permDesc').value = perm.description;
+        document.getElementById('permModal').classList.remove('hidden');
+    }
+
+    async function savePermission() {
+        const appId = document.getElementById('currentAppId').value;
+        const id = document.getElementById('permId').value;
+        const code = document.getElementById('permCode').value;
+        const desc = document.getElementById('permDesc').value;
+
+        if (id) {
+            // Update
+            await api(`/api/v1/admin/permissions/${id}`, 'PUT', {permission_code: code, description: desc});
+        } else {
+            // Create
+            await api(`/api/v1/admin/apps/${appId}/permissions`, 'POST', {permission_code: code, description: desc});
+        }
+        closeModal('permModal');
+        await loadPermissions(appId);
+    }
+
+    async function deletePermission(id) {
+        event.stopPropagation();
+        if (!confirm('Are you sure? This might affect existing roles.')) return;
+        await api(`/api/v1/admin/permissions/${id}`, 'DELETE');
+        const appId = document.getElementById('currentAppId').value;
+        await loadPermissions(appId);
+    }
+
+    // --- Roles ---
+    async function loadRoles(appId) {
+        const res = await api(`/api/v1/admin/apps/${appId}/roles`);
+        const tbody = document.querySelector('#rolesTable tbody');
+        tbody.innerHTML = '';
+
+        const canEdit = hasPermission('applications:manage:roles:edit');
+
+        if (res && res.data) {
+            res.data.forEach(r => {
+                let scopeLabel = 'Self';
+                if (r.data_scope) {
+                    const map = {1: 'Self', 2: 'Department', 3: 'All', 4: 'Custom'};
+                    scopeLabel = map[r.data_scope.scope_type] || 'Unknown';
+                }
+
+                const editBtn = canEdit
+                    ? `<button class="sm" onclick="openRoleEditorPage(${r.id}, '${r.name}')">Edit</button>`
+                    : `<button class="sm disabled-btn" disabled>Edit</button>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${r.id}</td>
+                        <td>${r.name}</td>
+                        <td><span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">${scopeLabel}</span></td>
+                        <td>${editBtn}</td>
+                    </tr>`;
+            });
+        }
+    }
+
+    function openCreateRoleModal() {
+        document.getElementById('newRoleName').value = '';
+        document.getElementById('createRoleModal').classList.remove('hidden');
+    }
+
+    async function createRole() {
+        const appId = document.getElementById('currentAppId').value;
+        const name = document.getElementById('newRoleName').value;
+        await api(`/api/v1/admin/apps/${appId}/roles`, 'POST', {name});
+        closeModal('createRoleModal');
+        await loadRoles(appId);
+    }
+
+    // --- Role Editor (New Page) ---
+    async function openRoleEditorPage(roleId, roleName) {
+        const appId = document.getElementById('currentAppId').value;
+        document.getElementById('apps-section').classList.add('hidden');
+        document.getElementById('role-editor-section').classList.remove('hidden');
+
+        document.getElementById('editRoleNameDisplay').innerText = roleName;
+        document.getElementById('editingRoleId').value = roleId;
+
+        // Fetch Role Details (including Data Scope)
+        const roleRes = await api(`/api/v1/admin/roles/${roleId}`);
+        if (roleRes && roleRes.data) {
+            const role = roleRes.data;
+            if (role.data_scope) {
+                document.getElementById('roleDataScopeSelect').value = role.data_scope.scope_type;
+                document.getElementById('roleCustomConfig').value = role.data_scope.custom_config || '';
+            } else {
+                document.getElementById('roleDataScopeSelect').value = 1;
+                document.getElementById('roleCustomConfig').value = '';
+            }
+            toggleCustomScope();
+
+            // Fetch perms to build checkboxes
+            const permsRes = await api(`/api/v1/admin/apps/${appId}/permissions`);
+            renderRolePermissionsEditor(permsRes.data, role.permission_mask);
+        }
+    }
+
+    function toggleCustomScope() {
+        const val = document.getElementById('roleDataScopeSelect').value;
+        if (val === 4) {
+            document.getElementById('customScopeConfig').classList.remove('hidden');
+        } else {
+            document.getElementById('customScopeConfig').classList.add('hidden');
+        }
+    }
+
+    function renderRolePermissionsEditor(perms, currentMaskHex) {
+        const container = document.getElementById('rolePermsEditor');
+        container.innerHTML = '';
+
+        let maskVal = BigInt('0x' + currentMaskHex);
+
+        // Build hierarchy based on colons in permission_code
+        const tree = {};
+
+        perms.forEach(p => {
+            const parts = p.permission_code.split(':');
+            let currentLevel = tree;
+            parts.forEach((part, index) => {
+                if (!currentLevel[part]) {
+                    currentLevel[part] = {
+                        _children: {},
+                        _data: (index === parts.length - 1) ? p : null
+                    };
+                } else if (index === parts.length - 1) {
+                    currentLevel[part]._data = p;
+                }
+                currentLevel = currentLevel[part]._children;
+            });
+        });
+
+        function createNodeHtml(name, node, level = 0, path = '') {
+            let html = '';
+            const padding = level * 24;
+            const isLeaf = Object.keys(node._children).length === 0;
+            const data = node._data;
+            const currentPath = path ? path + '-' + name : name;
+
+            // Check if this node (if it has data) is checked
+            let isChecked = false;
+            if (data) {
+                const bitVal = 1n << BigInt(data.bit_index);
+                isChecked = (maskVal & bitVal) === bitVal;
+            }
+
+            html += `
+                <div class="tree-node">
+                    <div class="tree-content" style="padding-left: ${padding}px">
+                        <span class="tree-toggler" onclick="toggleTree('${currentPath}')">
+                            ${!isLeaf ? '▪' : '•'}
+                        </span>
+
+                        <label style="display: flex; align-items: center; cursor: pointer; margin-left: 8px;">
+                            <input type="checkbox" class="role-perm-check"
+                                   id="cb-${currentPath}"
+                                   data-path="${currentPath}"
+                                   ${data ? `value="${data.bit_index}"` : ''}
+                                   ${isChecked ? 'checked' : ''}
+                                   onchange="handleRolePermCheck(this, '${currentPath}')">
+                            <span style="margin-left: 8px; font-weight: 500;">${name}</span>
+                        </label>
+
+                        ${!isLeaf ? `<span class="select-all-link" id="link-${currentPath}" onclick="selectAllChildren(event, '${currentPath}')">Select All</span>` : ''}
+
+                        ${data ? `<span style="margin-left: 12px; color: var(--text-muted); font-size: 0.85rem;">(${data.description || 'No desc'})</span>` : ''}
+                    </div>
+                    <div id="children-${currentPath}" class="tree-children">
+                        ${Object.keys(node._children).map(key => createNodeHtml(key, node._children[key], level + 1, currentPath)).join('')}
+                    </div>
+                </div>
+            `;
+            return html;
+        }
+
+        Object.keys(tree).forEach(key => {
+            container.innerHTML += createNodeHtml(key, tree[key]);
+        });
+
+        // Initial check for "Select All" links status
+        updateSelectAllLinks();
+
+        document.querySelectorAll('.role-perm-check').forEach(cb => {
+            cb.addEventListener('change', e => onRolePermChange(e.target))
+        })
+    }
+
+    // 1. 勾选逻辑：点击复选框时触发
+    function handleRolePermCheck(source, path) {
+        const isChecked = source.checked;
+        const childrenContainer = document.getElementById('children-' + path);
+
+        // 向下：联动所有子节点
+        if (childrenContainer) {
+            const childCheckboxes = childrenContainer.querySelectorAll('input[type="checkbox"]');
+            childCheckboxes.forEach(cb => {
+                cb.checked = isChecked;
+            });
+        }
+
+        // 向上 & 全局：更新所有 Select All 状态
+        updateSelectAllLinks();
+    }
+
+    // 2. 点击 "Select All" 链接时触发
+    function selectAllChildren(event, path) {
+        // 阻止冒泡，防止触发 tree-content 的 toggleTree
+        if (event) event.stopPropagation();
+
+        const link = document.getElementById('link-' + path);
+        if (link && link.classList.contains('disabled')) return;
+
+        const childrenContainer = document.getElementById('children-' + path);
+        if (childrenContainer) {
+            // 选中下面所有的复选框
+            const childCheckboxes = childrenContainer.querySelectorAll('input[type="checkbox"]');
+            childCheckboxes.forEach(cb => cb.checked = true);
+
+            // 同时选中当前这一级的复选框
+            const currentCb = document.getElementById('cb-' + path);
+            if (currentCb) currentCb.checked = true;
+        }
+
+        updateSelectAllLinks();
+    }
+
+    // 3. 核心：更新 Select All 的置灰状态
+    function updateSelectAllLinks() {
+        document.querySelectorAll('.select-all-link').forEach(link => {
+            // 从 id (link-xxx) 中提取 path (xxx)
+            const path = link.id.substring(5);
+            const container = document.getElementById('children-' + path);
+
+            if (container) {
+                const allCheckboxes = Array.from(container.querySelectorAll('input[type="checkbox"]'));
+                if (allCheckboxes.length === 0) return;
+
+                // 检查是否全部选中
+                const isAllChecked = allCheckboxes.every(cb => cb.checked);
+
+                if (isAllChecked) {
+                    link.classList.add('disabled');
+                    link.innerText = 'All Selected';
+                    // 联动：既然子项全选了，代表该目录也被全选了，勾起目录复选框
+                    const parentCb = document.getElementById('cb-' + path);
+                    if (parentCb) parentCb.checked = true;
+                } else {
+                    link.classList.remove('disabled');
+                    link.innerText = 'Select All';
+                }
+            }
+        });
+    }
+
+    async function saveRoleChanges() {
+        const roleId = document.getElementById('editingRoleId').value;
+        const scopeType = parseInt(document.getElementById('roleDataScopeSelect').value);
+        const customConfig = document.getElementById('roleCustomConfig').value;
+
+        const checkboxes = document.querySelectorAll('.role-perm-check');
+        let newMask = 0n;
+        checkboxes.forEach(cb => {
+            // Only count checkboxes that have a value (actual permissions, not just folders)
+            if (cb.checked && cb.value) {
+                newMask |= (1n << BigInt(cb.value));
+            }
+        });
+
+        // Convert to Hex, pad to 32 chars
+        let hex = newMask.toString(16);
+        while (hex.length < 32) hex = "0" + hex;
+
+        await api(`/api/v1/admin/roles/${roleId}`, 'PUT', {
+            permission_mask: hex,
+            scope_type: scopeType,
+            custom_config: customConfig
+        });
+
+        alert('Role updated successfully!');
+        backToRoles();
+    }
+
+    // --- Users ---
+    let currentUsers = [];
+
+    async function loadUsers() {
+        const res = await api('/api/v1/admin/users');
+        const tbody = document.querySelector('#usersTable tbody');
+        tbody.innerHTML = '';
+
+        const canAssign = hasPermission('users:assignRole');
+
+        if (res && res.data) {
+            currentUsers = res.data;
+            res.data.forEach(u => {
+                let rolesHtml = '';
+                if (u.user_roles && u.user_roles.length > 0) {
+                    u.user_roles.forEach(ur => {
+                        rolesHtml += `<span class="role-badge">${ur.app.name}: ${ur.role.name}</span>`;
+                    });
+                } else {
+                    rolesHtml = '<span style="color: #9ca3af; font-size: 0.8rem;">No roles</span>';
+                }
+
+                const assignBtn = canAssign
+                    ? `<button class="sm" onclick="openAssignModal('${u.id}')">Assign Role</button>`
+                    : `<button class="sm disabled-btn" disabled>Assign Role</button>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><small>${u.id}</small></td>
+                        <td>${u.username}</td>
+                        <td>${u.email}</td>
+                        <td>${rolesHtml}</td>
+                        <td>${assignBtn}</td>
+                    </tr>`;
+            });
+        }
+    }
+
+    function openCreateUserModal() {
+        document.getElementById('newUserName').value = '';
+        document.getElementById('newUserEmail').value = '';
+        document.getElementById('newUserPass').value = '';
+        document.getElementById('createUserModal').classList.remove('hidden');
+    }
+
+    async function createUser() {
+        const username = document.getElementById('newUserName').value;
+        const email = document.getElementById('newUserEmail').value;
+        const password = document.getElementById('newUserPass').value;
+
+        await api('/api/v1/admin/users', 'POST', {username, email, password});
+        closeModal('createUserModal');
+        await loadUsers();
+    }
+
+    async function openAssignModal(userId) {
+        document.getElementById('assignUserId').value = userId;
+        document.getElementById('assignModal').classList.remove('hidden');
+
+        // Load Apps for select
+        const res = await api('/api/v1/admin/apps');
+        const select = document.getElementById('assignAppSelect');
+        select.innerHTML = '<option value="">Select App</option>';
+        res.data.forEach(app => {
+            select.innerHTML += `<option value="${app.id}">${app.name}</option>`;
+        });
+
+        // Reset Role Select
+        document.getElementById('assignRoleSelect').innerHTML = '<option value="">Select Role</option>';
+
+        // Pre-select if user has existing role
+        const user = currentUsers.find(u => u.id === userId);
+        if (user && user.user_roles && user.user_roles.length > 0) {
+            // Pick the first one for now
+            const firstRole = user.user_roles[0];
+            select.value = firstRole.app_id;
+
+            // Trigger load roles and then set role
+            await loadRolesForAssign();
+            document.getElementById('assignRoleSelect').value = firstRole.role_id;
+        }
+    }
+
+    async function loadRolesForAssign() {
+        const appId = document.getElementById('assignAppSelect').value;
+        const userId = document.getElementById('assignUserId').value;
+        const roleSelect = document.getElementById('assignRoleSelect');
+
+        if (!appId) {
+            roleSelect.innerHTML = '<option value="">Select Role</option>';
+            return;
+        }
+
+        // 1. Load All Roles for this App
+        const rolesRes = await api(`/api/v1/admin/apps/${appId}/roles`);
+        let html = '<option value="">Select Role</option>';
+        if (rolesRes && rolesRes.data) {
+            rolesRes.data.forEach(r => {
+                html += `<option value="${r.id}">${r.name}</option>`;
+            });
+        }
+        roleSelect.innerHTML = html; // Update DOM first
+
+        // 2. Load Current User Role for this App (if any)
+        // Note: We might have already pre-selected based on list data, but this ensures we get the latest for the selected app
+        const userRoleRes = await api(`/api/v1/admin/users/${userId}/apps/${appId}/role`);
+        if (userRoleRes && userRoleRes.data) {
+            roleSelect.value = userRoleRes.data.id;
+        }
+    }
+
+    async function assignRole() {
+        const userId = document.getElementById('assignUserId').value;
+        const roleId = document.getElementById('assignRoleSelect').value;
+        const appId = document.getElementById('assignAppSelect').value;
+
+        if (!roleId || !appId) {
+            alert('Please select both App and Role');
+            return;
+        }
+
+        await api(`/api/v1/admin/users/${userId}/roles`, 'PUT', {
+            role_id: parseInt(roleId),
+            app_id: parseInt(appId)
+        });
+        closeModal('assignModal');
+        alert('Role assigned!');
+        await loadUsers(); // Refresh list to show new role
+    }
+
+</script>
+
+</body>
+</html>
