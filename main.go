@@ -51,7 +51,7 @@ func main() {
 	// Admin Routes
 	admin := r.Group("/api/v1/admin")
 	admin.Use(middleware.AuthMiddleware())
-	//admin.Use(handler.CheckAdminPermission)
+	admin.Use(handler.CheckAdminPermission) // Security: Enabled Admin Check
 	{
 		// Apps
 		admin.GET("/apps", handler.ListApps)

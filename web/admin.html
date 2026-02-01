@@ -20,6 +20,11 @@
             --success-color: #10b981;
             --disabled-color: #9ca3af;
             --disabled-bg: #e5e7eb;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
@@ -29,6 +34,36 @@
             height: 100vh;
             background-color: var(--bg-color);
             color: var(--text-color);
+            overflow: hidden; /* Prevent body scroll, handle in content */
+        }
+
+        /* Mobile Header */
+        .mobile-header {
+            display: none;
+            background: #111827;
+            color: white;
+            padding: 1rem;
+            align-items: center;
+            width: 100%;
+            position: fixed;
+            top: 0;
+            z-index: 40;
+            height: 60px;
+        }
+
+        .mobile-header h2 {
+            margin: 0;
+            font-size: 1.125rem;
+            margin-left: 1rem;
+        }
+
+        .menu-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
         }
 
         /* Sidebar */
@@ -39,11 +74,17 @@
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
+            height: 100%;
+            transition: transform 0.3s ease-in-out;
+            z-index: 50;
         }
 
         .sidebar-header {
-            padding: 24px;
+            padding: 1.5rem;
             background: #111827;
+            height: 60px; /* Match mobile header height */
+            display: flex;
+            align-items: center;
         }
 
         .sidebar-header h2 {
@@ -55,11 +96,12 @@
 
         .sidebar nav {
             flex: 1;
-            padding: 16px 0;
+            padding: 1rem 0;
+            overflow-y: auto;
         }
 
         .sidebar a {
-            padding: 12px 24px;
+            padding: 0.75rem 1.5rem;
             color: #9ca3af;
             text-decoration: none;
             display: flex;
@@ -68,47 +110,52 @@
             font-size: 0.95rem;
         }
 
-        .sidebar a:hover, .sidebar a.active {
+        .disabled-link {
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .sidebar a:not(.disabled-link):hover, .sidebar a.active:not(.disabled-link) {
             background: var(--sidebar-hover);
             color: white;
             border-left: 4px solid var(--primary-color);
         }
 
-        .sidebar a i {
-            margin-right: 12px;
-            width: 20px;
-            text-align: center;
-        }
-
-        /* Disabled Sidebar Link */
-        .sidebar a.disabled-link {
-            pointer-events: none;
-            color: var(--disabled-color);
-            background: transparent;
-            border-left-color: transparent;
-            cursor: not-allowed;
-            opacity: 0.5;
+        /* Overlay for Mobile */
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 45;
+            opacity: 0;
+            transition: opacity 0.3s;
         }
 
         /* Content */
         .content {
             flex: 1;
-            padding: 32px;
+            padding: 2rem;
             overflow-y: auto;
+            height: 100%;
+            position: relative;
         }
 
         .container {
-            max-width: 1200px;
+            width: 96%;
             margin: 0 auto;
         }
 
         /* Cards */
         .card {
             background: var(--card-bg);
-            padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            margin-bottom: 24px;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
             border: 1px solid var(--border-color);
         }
 
@@ -116,7 +163,9 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
 
         .card-title {
@@ -126,16 +175,22 @@
         }
 
         /* Tables */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
         table {
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
-            margin-top: 10px;
+            margin-top: 0.5rem;
+            min-width: 600px; /* Ensure table doesn't squash too much */
         }
 
         th, td {
             text-align: left;
-            padding: 16px;
+            padding: 1rem;
             border-bottom: 1px solid var(--border-color);
         }
 
@@ -158,13 +213,15 @@
 
         /* Forms */
         input, select, textarea {
-            padding: 10px 12px;
+            padding: 0.625rem 0.75rem;
             border: 1px solid var(--border-color);
-            border-radius: 6px;
-            margin-right: 10px;
+            border-radius: 0.375rem;
+            margin-right: 0.625rem;
             font-size: 0.9rem;
             outline: none;
             transition: border-color 0.2s;
+            width: 100%;
+            max-width: 100%;
         }
 
         input:focus, select:focus, textarea:focus {
@@ -174,15 +231,16 @@
 
         /* Buttons */
         button {
-            padding: 10px 18px;
+            padding: 0.625rem 1.125rem;
             background-color: var(--primary-color);
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 0.375rem;
             cursor: pointer;
             font-weight: 500;
             font-size: 0.9rem;
             transition: background-color 0.2s;
+            white-space: nowrap;
         }
 
         button:hover {
@@ -208,11 +266,10 @@
         }
 
         button.sm {
-            padding: 6px 12px;
+            padding: 0.375rem 0.75rem;
             font-size: 0.8rem;
         }
 
-        /* Disabled Button Style */
         button:disabled, button.disabled-btn {
             background-color: var(--disabled-bg);
             color: var(--disabled-color);
@@ -220,234 +277,213 @@
             border-color: var(--border-color);
         }
 
-        button:disabled:hover, button.disabled-btn:hover {
-            background-color: var(--disabled-bg);
-        }
-
         /* Utility */
-        .hidden {
-            display: none !important;
-        }
-
-        .flex {
-            display: flex;
-        }
-
-        .items-center {
-            align-items: center;
-        }
-
-        .justify-between {
-            justify-content: space-between;
-        }
-
-        .gap-2 {
-            gap: 8px;
-        }
-
-        .mt-4 {
-            margin-top: 16px;
-        }
-
-        .mb-4 {
-            margin-bottom: 16px;
-        }
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .gap-2 { gap: 0.5rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .text-muted { color: var(--text-muted); font-size: 0.9rem; }
 
         /* Tabs */
         .tabs {
             display: flex;
             border-bottom: 1px solid var(--border-color);
-            margin-bottom: 24px;
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
         }
 
         .tab {
-            padding: 12px 24px;
+            padding: 0.75rem 1.5rem;
             cursor: pointer;
             color: var(--text-muted);
             font-weight: 500;
             border-bottom: 2px solid transparent;
             transition: all 0.2s;
+            white-space: nowrap;
         }
 
-        .tab:hover {
-            color: var(--text-color);
-        }
+        .tab:hover { color: var(--text-color); }
+        .tab.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+        .tab.disabled-tab { color: var(--disabled-color); cursor: not-allowed; pointer-events: none; }
 
-        .tab.active {
-            color: var(--primary-color);
-            border-bottom-color: var(--primary-color);
-        }
-
-        /* Disabled Tab */
-        .tab.disabled-tab {
-            color: var(--disabled-color);
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-
-        /* Tree View for Permissions */
-        .tree-node {
-            margin-left: 20px;
-            padding: 4px 0;
-        }
-
+        /* Tree View */
+        .tree-node { margin-left: 1.25rem; padding: 0.25rem 0; }
         .tree-content {
             display: flex;
             align-items: center;
-            padding: 8px;
-            border-radius: 6px;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
             transition: background 0.2s;
+            flex-wrap: wrap;
         }
+        .tree-content:hover { background: #f3f4f6; }
+        .tree-content .actions { margin-left: auto; opacity: 0; transition: opacity 0.2s; display: flex; gap: 0.5rem; }
+        .tree-content:hover .actions { opacity: 1; }
+        .tree-toggler { cursor: pointer; width: 1.25rem; display: inline-block; text-align: center; user-select: none; }
+        .tree-children.collapsed { display: none; }
+        .select-all-link { font-size: 0.8rem; color: var(--primary-color); cursor: pointer; margin-left: 0.75rem; text-decoration: underline; }
+        .select-all-link.disabled { color: var(--disabled-color) !important; cursor: not-allowed; text-decoration: none; pointer-events: none; }
 
-        .tree-content:hover {
-            background: #f3f4f6;
+        /* Accordion Styles */
+        .accordion-item {
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
         }
-
-        .tree-content .actions {
-            margin-left: auto;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        .tree-content:hover .actions {
-            opacity: 1;
-        }
-
-        .tree-toggler {
+        .accordion-header {
+            background: #f9fafb;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             cursor: pointer;
-            width: 20px;
-            display: inline-block;
-            text-align: center;
             user-select: none;
         }
-
-        .tree-children.collapsed {
+        .accordion-header:hover {
+            background: #f3f4f6;
+        }
+        .accordion-title {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .accordion-summary {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-right: 1rem;
+        }
+        .accordion-body {
             display: none;
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+            background: white;
+        }
+        .accordion-body.open {
+            display: block;
         }
 
-        /* Select All Link */
-        .select-all-link {
-            font-size: 0.8rem;
-            color: var(--primary-color);
+        /* Switch Toggle */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 20px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
             cursor: pointer;
-            margin-left: 12px;
-            text-decoration: underline;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
         }
-
-        .select-all-link.disabled {
-            color: var(--disabled-color) !important;
-            cursor: not-allowed;
-            text-decoration: none;
-            pointer-events: none;
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px; width: 14px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+        input:checked + .slider:before {
+            transform: translateX(14px);
         }
 
         /* Modals */
         .modal {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            display: flex; justify-content: center; align-items: center;
             z-index: 1000;
             backdrop-filter: blur(2px);
+            padding: 1rem;
         }
 
         .modal-content {
             background: white;
-            padding: 32px;
-            border-radius: 12px;
-            width: 480px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-        }
-
-        .modal-header h3 {
-            margin: 0;
-            font-size: 1.25rem;
-        }
-
-        .close {
-            cursor: pointer;
-            font-size: 24px;
-            color: var(--text-muted);
-        }
-
-        .close:hover {
-            color: var(--text-color);
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            font-size: 0.9rem;
-        }
-
-        .form-group input, .form-group select, .form-group textarea {
+            padding: 2rem;
+            border-radius: 0.75rem;
             width: 100%;
-            box-sizing: border-box;
+            max-width: 480px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
-        /* Role Editor Page */
-        .role-editor-container {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .modal-header h3 { margin: 0; font-size: 1.25rem; }
+        .close { cursor: pointer; font-size: 1.5rem; color: var(--text-muted); }
+        .close:hover { color: var(--text-color); }
 
-        .role-editor-header {
-            margin-bottom: 20px;
-        }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; }
 
-        .role-perm-group {
-            margin-bottom: 20px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 16px;
-        }
+        /* Role Editor */
+        .role-editor-container { display: flex; flex-direction: column; height: 100%; }
+        .role-badge { background: #e0e7ff; color: #3730a3; padding: 0.125rem 0.5rem; border-radius: 0.75rem; font-size: 0.75rem; margin-right: 0.25rem; display: inline-block; margin-bottom: 0.125rem; }
 
-        .role-perm-group-title {
-            font-weight: 600;
-            margin-bottom: 12px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 8px;
-        }
+        /* Responsive Media Queries */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .mobile-header { display: flex; }
 
-        .role-perm-item {
-            margin-bottom: 8px;
-            margin-left: 12px;
-        }
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -100%;
+                height: 100%;
+                width: 260px;
+                transform: translateX(0);
+                transition: left 0.3s ease;
+            }
 
-        .role-badge {
-            background: #e0e7ff;
-            color: #3730a3;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            margin-right: 4px;
-            display: inline-block;
-            margin-bottom: 2px;
-        }
+            .sidebar.open { left: 0; }
 
+            .overlay.open { display: block; opacity: 1; }
+
+            .content {
+                padding: 1rem;
+                margin-top: 60px; /* Height of mobile header */
+            }
+
+            .card { padding: 1rem; }
+
+            .tree-content .actions { opacity: 1; margin-top: 0.5rem; width: 100%; justify-content: flex-end; }
+
+            /* Adjust buttons for touch */
+            button { padding: 0.75rem 1rem; }
+            button.sm { padding: 0.5rem 0.75rem; }
+        }
     </style>
 </head>
 <body>
 
-<div class="sidebar">
+<!-- Mobile Header -->
+<div class="mobile-header">
+    <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+    <h2>UniAuth Admin</h2>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<div class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <h2>UniAuth Admin</h2>
     </div>
@@ -457,7 +493,7 @@
         <a href="#" onclick="showSection('users'); return false;" id="nav-users" data-permission="users">User
             Management</a>
     </nav>
-    <div style="padding: 20px;">
+    <div style="padding: 1.25rem;">
         <button class="secondary sm" onclick="logout()" style="width: 100%">Logout</button>
     </div>
 </div>
@@ -471,17 +507,19 @@
                     <h3 class="card-title">Applications</h3>
                     <button onclick="openCreateAppModal()" data-permission="applications:new">+ New App</button>
                 </div>
-                <table id="appsTable">
-                    <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Code</th>
-                        <th>Name</th>
-                        <th>Actions</th>
-                    </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
+                <div class="table-responsive">
+                    <table id="appsTable">
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
 
             <div id="app-details" class="hidden">
@@ -505,7 +543,7 @@
 
                     <!-- Permissions Tab -->
                     <div id="tab-content-permissions">
-                        <div class="flex justify-between items-center mb-4">
+                        <div class="flex justify-between items-center mb-4" style="flex-wrap: wrap; gap: 1rem;">
                             <div class="text-muted">Manage hierarchical permissions for this application.</div>
                             <div class="flex gap-2">
                                 <button class="secondary" onclick="openImportPermModal()"
@@ -523,23 +561,25 @@
 
                     <!-- Roles Tab -->
                     <div id="tab-content-roles" class="hidden">
-                        <div class="flex justify-between items-center mb-4">
+                        <div class="flex justify-between items-center mb-4" style="flex-wrap: wrap; gap: 1rem;">
                             <div class="text-muted">Define roles and assign permissions.</div>
                             <button onclick="openCreateRoleModal()" data-permission="applications:manage:roles:new">+
                                 Create Role
                             </button>
                         </div>
-                        <table id="rolesTable">
-                            <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Data Scope</th>
-                                <th>Actions</th>
-                            </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+                        <div class="table-responsive">
+                            <table id="rolesTable">
+                                <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Data Scope</th>
+                                    <th>Actions</th>
+                                </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -550,14 +590,20 @@
             <div class="mb-4">
                 <button class="secondary sm" onclick="backToRoles()">← Back to Roles</button>
             </div>
+
+            <div class="flex justify-between items-center mb-4">
+                 <h3 style="margin:0">Edit Role: <span id="editRoleNameDisplay"></span></h3>
+                 <input type="hidden" id="editingRoleId">
+                 <button onclick="saveRoleChanges()">Save Changes</button>
+            </div>
+
+            <!-- Data Scope Card -->
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Edit Role: <span id="editRoleNameDisplay"></span></h3>
-                    <input type="hidden" id="editingRoleId">
+                    <h3 class="card-title">Data Scope</h3>
                 </div>
-
-                <div class="form-group" style="max-width: 400px;">
-                    <label>Data Scope</label>
+                <div class="form-group" style="max-width: 100%;">
+                    <label>Scope Type</label>
                     <select id="roleDataScopeSelect" onchange="toggleCustomScope()">
                         <option value="1">Self (Only own data)</option>
                         <option value="2">Department (Same Dept)</option>
@@ -566,22 +612,25 @@
                     </select>
                 </div>
 
-                <div id="customScopeConfig" class="form-group hidden" style="max-width: 400px;">
+                <div id="customScopeConfig" class="form-group hidden" style="max-width: 100%;">
                     <label>Custom Scope Config (JSON/IDs)</label>
                     <textarea id="roleCustomConfig" rows="3" placeholder='e.g. {"dept_ids": [1, 2, 3]}'></textarea>
                 </div>
+            </div>
 
-                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 24px 0;">
-
-                <h4 class="mb-4">Permissions</h4>
+            <!-- Permissions Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Permissions</h3>
+                </div>
                 <div id="rolePermsEditor" class="role-editor-container">
-                    <!-- Permissions Checkboxes -->
+                    <!-- Accordion will go here -->
                 </div>
+            </div>
 
-                <div class="mt-4 flex justify-between">
-                    <div></div>
-                    <button onclick="saveRoleChanges()">Save Changes</button>
-                </div>
+            <div class="mt-4 flex justify-between">
+                <div></div>
+                <button onclick="saveRoleChanges()">Save Changes</button>
             </div>
         </div>
 
@@ -593,18 +642,20 @@
                     <h3 class="card-title">Users</h3>
                     <button onclick="openCreateUserModal()" data-permission="users:new">+ Create User</button>
                 </div>
-                <table id="usersTable">
-                    <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Roles</th>
-                        <th>Actions</th>
-                    </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
+                <div class="table-responsive">
+                    <table id="usersTable">
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Roles</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -655,7 +706,7 @@
 
 <!-- Import Permission Modal -->
 <div id="importPermModal" class="hidden modal">
-    <div class="modal-content" style="width: 600px;">
+    <div class="modal-content" style="width: 100%; max-width: 600px;">
         <div class="modal-header">
             <h3>Import Permissions (JSON)</h3>
             <span class="close" onclick="closeModal('importPermModal')">&times;</span>
@@ -774,6 +825,27 @@
             window.location.href = '/?redirect=' + returnUrl;
         }
     })();
+
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('open');
+    }
+
+    // Close sidebar when clicking overlay
+    document.getElementById('overlay').addEventListener('click', () => {
+        toggleSidebar();
+    });
+
+    // Close sidebar when clicking a link on mobile
+    document.querySelectorAll('.sidebar a').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                toggleSidebar();
+            }
+        });
+    });
 
     function hasPermission(permCode) {
         const index = permissionDict[permCode];
@@ -984,7 +1056,7 @@
 
         function createNodeHtml(name, node, level = 0, path = '') {
             let html = '';
-            const padding = level * 24;
+            const padding = level * 1.5; // rem based padding logic
             const isLeaf = Object.keys(node._children).length === 0;
             const data = node._data;
             const currentPath = path ? path + '-' + name : name;
@@ -1002,13 +1074,13 @@
 
             html += `
                 <div class="tree-node">
-                    <div class="tree-content" style="padding-left: ${padding}px"  onclick="toggleTree('${currentPath}')">
+                    <div class="tree-content" style="padding-left: ${padding}rem"  onclick="toggleTree('${currentPath}')">
                         <span class="tree-toggler">
                             ${!isLeaf ? '▼' : '•'}
                         </span>
-                        <span style="font-weight: 500;">${name}</span>
-                        ${data ? `<span style="margin-left: 12px; color: var(--text-muted); font-size: 0.85rem;">(${data.description || 'No desc'})</span>` : ''}
-                        ${data ? `<span style="margin-left: 12px; font-family: monospace; background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">Index: ${data.bit_index}</span>` : ''}
+                        <span style="font-weight: 500; margin-left: 0.5rem;">${name}</span>
+                        ${data ? `<span style="margin-left: 0.75rem; color: var(--text-muted); font-size: 0.85rem;">(${data.description || 'No desc'})</span>` : ''}
+                        ${data ? `<span style="margin-left: 0.75rem; font-family: monospace; background: #e5e7eb; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.8rem;">Index: ${data.bit_index}</span>` : ''}
 
                         <div class="actions">
                             ${actionsHtml}
@@ -1027,7 +1099,7 @@
         });
 
         if (perms.length === 0) {
-            container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">No permissions found. Add one to get started.</div>';
+            container.innerHTML = '<div style="text-align: center; padding: 2.5rem; color: var(--text-muted);">No permissions found. Add one to get started.</div>';
         }
     }
 
@@ -1203,9 +1275,8 @@
 
         let maskVal = BigInt('0x' + currentMaskHex);
 
-        // Build hierarchy based on colons in permission_code
+        // Build hierarchy
         const tree = {};
-
         perms.forEach(p => {
             const parts = p.permission_code.split(':');
             let currentLevel = tree;
@@ -1222,14 +1293,31 @@
             });
         });
 
-        function createNodeHtml(name, node, level = 0, path = '') {
+        // Helper to count stats
+        function getStats(node) {
+            let total = 0;
+            let checked = 0;
+            if (node._data) {
+                total++;
+                const bitVal = 1n << BigInt(node._data.bit_index);
+                if ((maskVal & bitVal) === bitVal) checked++;
+            }
+            Object.values(node._children).forEach(child => {
+                const s = getStats(child);
+                total += s.total;
+                checked += s.checked;
+            });
+            return { total, checked };
+        }
+
+        // Helper to create tree HTML
+        function createTreeHtml(name, node, level = 0, path = '') {
             let html = '';
-            const padding = level * 24;
+            const padding = level * 1.5;
             const isLeaf = Object.keys(node._children).length === 0;
             const data = node._data;
             const currentPath = path ? path + '-' + name : name;
 
-            // Check if this node (if it has data) is checked
             let isChecked = false;
             if (data) {
                 const bitVal = 1n << BigInt(data.bit_index);
@@ -1238,27 +1326,26 @@
 
             html += `
                 <div class="tree-node">
-                    <div class="tree-content" style="padding-left: ${padding}px">
-                        <span class="tree-toggler" onclick="toggleTree('${currentPath}')">
-                            ${!isLeaf ? '▪' : '•'}
+                    <div class="tree-content" style="padding-left: ${padding}rem">
+                        <span class="tree-toggler" onclick="toggleTree('${currentPath}')" style="visibility: ${!isLeaf ? 'visible' : 'hidden'}">
+                            ${!isLeaf ? '▼' : '•'}
                         </span>
 
-                        <label style="display: flex; align-items: center; cursor: pointer; margin-left: 8px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; margin-left: 0.5rem;">
                             <input type="checkbox" class="role-perm-check"
                                    id="cb-${currentPath}"
                                    data-path="${currentPath}"
                                    ${data ? `value="${data.bit_index}"` : ''}
                                    ${isChecked ? 'checked' : ''}
                                    onchange="handleRolePermCheck(this, '${currentPath}')">
-                            <span style="margin-left: 8px; font-weight: 500;">${name}</span>
+                            <span style="margin-left: 0.5rem; font-weight: 500;">${name}</span>
                         </label>
 
                         ${!isLeaf ? `<span class="select-all-link" id="link-${currentPath}" onclick="selectAllChildren(event, '${currentPath}')">Select All</span>` : ''}
-
-                        ${data ? `<span style="margin-left: 12px; color: var(--text-muted); font-size: 0.85rem;">(${data.description || 'No desc'})</span>` : ''}
+                        ${data ? `<span style="margin-left: 0.75rem; color: var(--text-muted); font-size: 0.85rem;">(${data.description || 'No desc'})</span>` : ''}
                     </div>
                     <div id="children-${currentPath}" class="tree-children">
-                        ${Object.keys(node._children).map(key => createNodeHtml(key, node._children[key], level + 1, currentPath)).join('')}
+                        ${Object.keys(node._children).map(key => createTreeHtml(key, node._children[key], level + 1, currentPath)).join('')}
                     </div>
                 </div>
             `;
@@ -1266,60 +1353,100 @@
         }
 
         Object.keys(tree).forEach(key => {
-            container.innerHTML += createNodeHtml(key, tree[key]);
+            const node = tree[key];
+            const stats = getStats(node);
+            const isAllChecked = stats.total > 0 && stats.total === stats.checked;
+            const accordionId = `acc-${key}`;
+
+            const childrenHtml = Object.keys(node._children).map(k => createTreeHtml(k, node._children[k], 0, key)).join('');
+
+            let selfHtml = '';
+            if (node._data) {
+                 selfHtml = createTreeHtml(key + " (Self)", { _data: node._data, _children: {} }, 0, key);
+            }
+
+            container.innerHTML += `
+                <div class="accordion-item" id="${accordionId}">
+                    <div class="accordion-header" onclick="toggleAccordion('${accordionId}')">
+                        <div class="accordion-title">
+                            <span id="icon-${accordionId}">▶</span>
+                            <span>${key}</span>
+                        </div>
+                        <div style="display: flex; align-items: center;" onclick="event.stopPropagation()">
+                            <span class="accordion-summary" id="summary-${accordionId}">Selected ${stats.checked}/${stats.total}</span>
+                            <label class="switch" style="margin-left: 10px;">
+                                <input type="checkbox" id="group-cb-${key}"
+                                    ${isAllChecked ? 'checked' : ''}
+                                    onchange="toggleGroup('${key}', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="accordion-body">
+                        ${selfHtml}
+                        ${childrenHtml}
+                    </div>
+                </div>
+            `;
         });
 
-        // Initial check for "Select All" links status
         updateSelectAllLinks();
-
-        document.querySelectorAll('.role-perm-check').forEach(cb => {
-            cb.addEventListener('change', e => onRolePermChange(e.target))
-        })
     }
 
-    // 1. 勾选逻辑：点击复选框时触发
+    function toggleAccordion(id) {
+        const item = document.getElementById(id);
+        const body = item.querySelector('.accordion-body');
+        const icon = item.querySelector(`#icon-${id}`);
+        if (body.classList.contains('open')) {
+            body.classList.remove('open');
+            icon.innerText = '▶';
+        } else {
+            body.classList.add('open');
+            icon.innerText = '▼';
+        }
+    }
+
+    function toggleGroup(rootKey, isChecked) {
+        const accordionId = `acc-${rootKey}`;
+        const item = document.getElementById(accordionId);
+        const checkboxes = item.querySelectorAll('.role-perm-check');
+        checkboxes.forEach(cb => cb.checked = isChecked);
+        updateGroupSummary(rootKey);
+        updateSelectAllLinks();
+    }
+
     function handleRolePermCheck(source, path) {
         const isChecked = source.checked;
         const childrenContainer = document.getElementById('children-' + path);
-
-        // 向下：联动所有子节点
         if (childrenContainer) {
             const childCheckboxes = childrenContainer.querySelectorAll('input[type="checkbox"]');
-            childCheckboxes.forEach(cb => {
-                cb.checked = isChecked;
-            });
+            childCheckboxes.forEach(cb => cb.checked = isChecked);
         }
-
-        // 向上 & 全局：更新所有 Select All 状态
         updateSelectAllLinks();
+
+        const rootKey = path.split('-')[0];
+        updateGroupSummary(rootKey);
     }
 
-    // 2. 点击 "Select All" 链接时触发
     function selectAllChildren(event, path) {
-        // 阻止冒泡，防止触发 tree-content 的 toggleTree
         if (event) event.stopPropagation();
-
         const link = document.getElementById('link-' + path);
         if (link && link.classList.contains('disabled')) return;
 
         const childrenContainer = document.getElementById('children-' + path);
         if (childrenContainer) {
-            // 选中下面所有的复选框
             const childCheckboxes = childrenContainer.querySelectorAll('input[type="checkbox"]');
             childCheckboxes.forEach(cb => cb.checked = true);
-
-            // 同时选中当前这一级的复选框
             const currentCb = document.getElementById('cb-' + path);
             if (currentCb) currentCb.checked = true;
         }
-
         updateSelectAllLinks();
+        const rootKey = path.split('-')[0];
+        updateGroupSummary(rootKey);
     }
 
-    // 3. 核心：更新 Select All 的置灰状态
     function updateSelectAllLinks() {
         document.querySelectorAll('.select-all-link').forEach(link => {
-            // 从 id (link-xxx) 中提取 path (xxx)
             const path = link.id.substring(5);
             const container = document.getElementById('children-' + path);
 
@@ -1327,13 +1454,11 @@
                 const allCheckboxes = Array.from(container.querySelectorAll('input[type="checkbox"]'));
                 if (allCheckboxes.length === 0) return;
 
-                // 检查是否全部选中
                 const isAllChecked = allCheckboxes.every(cb => cb.checked);
 
                 if (isAllChecked) {
                     link.classList.add('disabled');
                     link.innerText = 'All Selected';
-                    // 联动：既然子项全选了，代表该目录也被全选了，勾起目录复选框
                     const parentCb = document.getElementById('cb-' + path);
                     if (parentCb) parentCb.checked = true;
                 } else {
@@ -1342,6 +1467,22 @@
                 }
             }
         });
+    }
+
+    function updateGroupSummary(rootKey) {
+        const accordionId = `acc-${rootKey}`;
+        const item = document.getElementById(accordionId);
+        if (!item) return;
+
+        const checkboxes = Array.from(item.querySelectorAll('.role-perm-check[value]'));
+        const total = checkboxes.length;
+        const checked = checkboxes.filter(cb => cb.checked).length;
+
+        document.getElementById(`summary-${accordionId}`).innerText = `Selected ${checked}/${total}`;
+        const groupCb = document.getElementById(`group-cb-${rootKey}`);
+        if (groupCb) {
+            groupCb.checked = (total > 0 && total === checked);
+        }
     }
 
     async function saveRoleChanges() {
@@ -1353,7 +1494,8 @@
         let newMask = 0n;
         checkboxes.forEach(cb => {
             // Only count checkboxes that have a value (actual permissions, not just folders)
-            if (cb.checked && cb.value) {
+            // FIX: Added check for cb.value !== 'on' to exclude folder nodes
+            if (cb.checked && cb.value && cb.value !== 'on') {
                 newMask |= (1n << BigInt(cb.value));
             }
         });

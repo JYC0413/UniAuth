@@ -19,8 +19,35 @@ import (
 // --- App Management ---
 
 func ListApps(c *gin.Context) {
+	userIDStr, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userID := userIDStr.(uuid.UUID)
+
+	scope := getMaxDataScope(userID)
+
 	var apps []model.SysApp
-	if err := database.DB.Find(&apps).Error; err != nil {
+	query := database.DB.Model(&model.SysApp{})
+
+	if scope == 3 {
+		// All data
+	} else if scope == 2 {
+		// Dept: Self + Subordinates
+		subIDs, err := getAllSubordinateIDs(userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch subordinates"})
+			return
+		}
+		allIDs := append(subIDs, userID)
+		query = query.Where("id IN (SELECT app_id FROM sys_app_members WHERE user_id IN ?)", allIDs)
+	} else {
+		// Self (Default)
+		query = query.Where("id IN (SELECT app_id FROM sys_app_members WHERE user_id = ?)", userID)
+	}
+
+	if err := query.Find(&apps).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch apps"})
 		return
 	}
@@ -376,11 +403,37 @@ func parseUint(s string) uint64 {
 // --- User Management ---
 
 func ListUsers(c *gin.Context) {
+	userIDStr, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userID := userIDStr.(uuid.UUID)
+
+	scope := getMaxDataScope(userID)
+
 	var users []model.SysUser
-	if err := database.DB.
+	query := database.DB.
 		Preload("UserRoles.Role").
-		Preload("UserRoles.App").
-		Find(&users).Error; err != nil {
+		Preload("UserRoles.App")
+
+	if scope == 3 {
+		// All
+	} else if scope == 2 {
+		// Dept
+		subIDs, err := getAllSubordinateIDs(userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch subordinates"})
+			return
+		}
+		allIDs := append(subIDs, userID)
+		query = query.Where("id IN ?", allIDs)
+	} else {
+		// Self
+		query = query.Where("id = ?", userID)
+	}
+
+	if err := query.Find(&users).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
 		return
 	}
@@ -542,4 +595,56 @@ func CheckAdminPermission(c *gin.Context) {
 	}
 
 	c.Next()
+}
+
+// --- Helpers ---
+
+func getMaxDataScope(userID uuid.UUID) int {
+	var adminApp model.SysApp
+	if err := database.DB.Where("code = ?", "uniauth-admin").First(&adminApp).Error; err != nil {
+		return 1 // Default to Self
+	}
+
+	var userRoles []model.SysUserRole
+	if err := database.DB.Preload("Role.DataScope").Where("user_id = ? AND app_id = ?", userID, adminApp.ID).Find(&userRoles).Error; err != nil {
+		return 1
+	}
+
+	maxScope := 0
+	for _, ur := range userRoles {
+		if ur.Role.DataScope != nil {
+			if ur.Role.DataScope.ScopeType > maxScope {
+				maxScope = ur.Role.DataScope.ScopeType
+			}
+		}
+	}
+	if maxScope == 0 {
+		return 1
+	}
+	return maxScope
+}
+
+func getAllSubordinateIDs(managerID uuid.UUID) ([]uuid.UUID, error) {
+	type Result struct {
+		SubordinateID uuid.UUID
+	}
+	var results []Result
+	query := `
+	WITH RECURSIVE subordinates AS (
+		SELECT subordinate_id FROM sys_user_relations WHERE manager_id = ?
+		UNION
+		SELECT r.subordinate_id FROM sys_user_relations r
+		INNER JOIN subordinates s ON r.manager_id = s.subordinate_id
+	)
+	SELECT subordinate_id FROM subordinates;
+	`
+	if err := database.DB.Raw(query, managerID).Scan(&results).Error; err != nil {
+		return nil, err
+	}
+
+	ids := make([]uuid.UUID, len(results))
+	for i, r := range results {
+		ids[i] = r.SubordinateID
+	}
+	return ids, nil
 }

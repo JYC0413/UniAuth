@@ -48,8 +48,9 @@ func GetUserMask(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"data": gin.H{
-			"uid":  userID,
-			"mask": utils.MaskToHex(finalMask),
+			"uid":          userID,
+			"mask":         utils.MaskToHex(finalMask),
+			"redirect_url": app.RedirectURL,
 		},
 	})
 }

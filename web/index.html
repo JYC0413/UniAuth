@@ -4,50 +4,183 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UniAuth Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; }
-        .container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; }
-        h2 { text-align: center; color: #333; }
-        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background-color: #0056b3; }
-        .message { margin-top: 10px; text-align: center; font-size: 0.9rem; }
-        .error { color: red; }
-        .success { color: green; }
+        :root {
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-color: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: var(--bg-color);
+            margin: 0;
+            color: var(--text-color);
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 1rem;
+            box-shadow: var(--shadow);
+            width: 90%;
+            max-width: 24rem; /* approx 384px */
+            margin: 1rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .header p {
+            margin-top: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background-color: #f9fafb;
+        }
+
+        input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            background-color: white;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 0.5rem;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .message {
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 0.875rem;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            display: none;
+        }
+
+        .message.error {
+            display: block;
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        .message.success {
+            display: block;
+            background-color: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>UniAuth Login</h2>
-        <input type="text" id="username" placeholder="Username" required>
-        <input type="password" id="password" placeholder="Password" required>
-        <button onclick="login()">Login</button>
+        <div class="header">
+            <h2>UniAuth</h2>
+            <p>Sign in to your account</p>
+        </div>
+
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="Enter your username" required>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="••••••••" required>
+        </div>
+
+        <button onclick="login()">Sign In</button>
         <div id="message" class="message"></div>
     </div>
 
     <script>
-        // Check if already logged in
-        (async function checkLogin() {
+        async function processAuthFlow() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const appCode = urlParams.get('redirect');
+
+            if (!appCode) {
+                return;
+            }
+
             try {
-                const response = await fetch('/api/v1/auth/my-mask?app_code=uniauth-admin');
+                const response = await fetch(`/api/v1/auth/my-mask?app_code=${encodeURIComponent(appCode)}`);
+
                 if (response.ok) {
-                    // Already logged in, redirect
-                    handleRedirect();
+                    const data = await response.json();
+                    if (data.data.redirect_url) {
+                        window.location.href = data.data.redirect_url;
+                    }
                 }
             } catch (e) {
-                // Not logged in, stay here
-            }
-        })();
-
-        function handleRedirect() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const redirectUrl = urlParams.get('redirect');
-            if (redirectUrl) {
-                window.location.href = decodeURIComponent(redirectUrl);
-            } else {
-                console.log("No redirect URL found in query parameters.")
+                console.error('Auth check failed:', e);
             }
         }
+
+        // Check login on load
+        processAuthFlow();
 
         async function login() {
             const username = document.getElementById('username').value;
@@ -66,8 +199,7 @@
                 if (response.ok) {
                     messageDiv.textContent = 'Login successful!';
                     messageDiv.className = 'message success';
-                    // Redirect
-                    handleRedirect();
+                    await processAuthFlow();
                 } else {
                     messageDiv.textContent = data.error || 'Login failed';
                     messageDiv.className = 'message error';

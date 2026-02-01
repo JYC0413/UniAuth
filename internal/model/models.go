@@ -8,12 +8,13 @@ import (
 
 // SysApp 应用表
 type SysApp struct {
-	ID        uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
-	Code      string    `gorm:"type:varchar(50);uniqueIndex;not null" json:"code"`
-	Name      string    `gorm:"type:varchar(100)" json:"name"`
-	SecretKey string    `gorm:"type:varchar(64)" json:"secret_key"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
+	Code        string    `gorm:"type:varchar(50);uniqueIndex;not null" json:"code"`
+	Name        string    `gorm:"type:varchar(100)" json:"name"`
+	SecretKey   string    `gorm:"type:varchar(64)" json:"secret_key"`
+	RedirectURL string    `gorm:"type:varchar(255)" json:"redirect_url"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // SysPermission 权限字典表
@@ -74,6 +75,25 @@ type SysUser struct {
 	UserRoles []SysUserRole `gorm:"foreignKey:UserID" json:"user_roles,omitempty"`
 }
 
+// SysAppMember 应用成员表 (记录谁维护哪个App)
+type SysAppMember struct {
+	AppID    uint64    `gorm:"primaryKey;autoIncrement:false" json:"app_id"`
+	UserID   uuid.UUID `gorm:"type:uuid;primaryKey" json:"user_id"`
+	RoleType int16     `gorm:"type:smallint;default:1" json:"role_type"` // 1: Owner, 2: Member
+
+	App  SysApp  `gorm:"foreignKey:AppID" json:"app"`
+	User SysUser `gorm:"foreignKey:UserID" json:"user"`
+}
+
+// SysUserRelation 用户上下级关系表
+type SysUserRelation struct {
+	ManagerID     uuid.UUID `gorm:"type:uuid;primaryKey" json:"manager_id"`
+	SubordinateID uuid.UUID `gorm:"type:uuid;primaryKey" json:"subordinate_id"`
+
+	Manager     SysUser `gorm:"foreignKey:ManagerID" json:"manager"`
+	Subordinate SysUser `gorm:"foreignKey:SubordinateID" json:"subordinate"`
+}
+
 func (SysPermission) TableName() string {
 	return "sys_permissions"
 }
@@ -96,4 +116,12 @@ func (SysUserRole) TableName() string {
 
 func (SysApp) TableName() string {
 	return "sys_apps"
+}
+
+func (SysAppMember) TableName() string {
+	return "sys_app_members"
+}
+
+func (SysUserRelation) TableName() string {
+	return "sys_user_relations"
 }
