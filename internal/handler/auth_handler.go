@@ -70,6 +70,7 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":    "Login successful",
 		"data_scope": dataScopeStr,
+		"token":      token,
 	})
 }
 

@@ -45,12 +45,22 @@ func GetUserMask(c *gin.Context) {
 		finalMask.Or(finalMask, roleMask)
 	}
 
+	// Retrieve token to return to frontend so it can be passed to subsystems
+	tokenString, err := c.Cookie("auth_token")
+	if err != nil {
+		tokenString = c.GetHeader("Authorization")
+		if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
+			tokenString = tokenString[7:]
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"data": gin.H{
 			"uid":          userID,
 			"mask":         utils.MaskToHex(finalMask),
 			"redirect_url": app.RedirectURL,
+			"token":        tokenString,
 		},
 	})
 }

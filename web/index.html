@@ -157,7 +157,7 @@
     </div>
 
     <script>
-        async function processAuthFlow() {
+        async function processAuthFlow(token) {
             const urlParams = new URLSearchParams(window.location.search);
             const appCode = urlParams.get('redirect');
 
@@ -171,7 +171,12 @@
                 if (response.ok) {
                     const data = await response.json();
                     if (data.data.redirect_url) {
-                        window.location.href = data.data.redirect_url;
+                        let redirectUrl = data.data.redirect_url;
+                        if (token) {
+                            const separator = redirectUrl.includes('?') ? '&' : '?';
+                            redirectUrl += separator + 'token=' + encodeURIComponent(token);
+                        }
+                        window.location.href = redirectUrl;
                     }
                 }
             } catch (e) {
@@ -199,7 +204,7 @@
                 if (response.ok) {
                     messageDiv.textContent = 'Login successful!';
                     messageDiv.className = 'message success';
-                    await processAuthFlow();
+                    await processAuthFlow(data.token);
                 } else {
                     messageDiv.textContent = data.error || 'Login failed';
                     messageDiv.className = 'message error';

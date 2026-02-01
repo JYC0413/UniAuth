@@ -794,6 +794,7 @@
     // --- Global State ---
     let currentUserMask = 0n;
     let permissionDict = {}; // code -> bit_index
+    let authToken = null; // Store token globally
 
     // --- Initialization ---
     (async function init() {
@@ -805,6 +806,18 @@
                 return;
             }
             currentUserMask = BigInt('0x' + maskRes.data.mask);
+
+            // Store token if returned from my-mask (e.g. when using cookie auth)
+            if (maskRes.data.token) {
+                authToken = maskRes.data.token;
+            } else {
+                // Fallback: check URL param if not returned by API (though API should return it now)
+                const urlParams = new URLSearchParams(window.location.search);
+                const tokenFromUrl = urlParams.get('token');
+                if (tokenFromUrl) {
+                    authToken = tokenFromUrl;
+                }
+            }
 
             // 2. Get Permission Dictionary
             const metaRes = await api('/api/v1/meta/permissions?app_code=uniauth-admin');
@@ -953,6 +966,18 @@
     async function api(url, method = 'GET', body = null) {
         const opts = {method, headers: {'Content-Type': 'application/json'}};
         if (body) opts.body = JSON.stringify(body);
+
+        // Use globally stored token if available, otherwise check URL
+        if (authToken) {
+             opts.headers['Authorization'] = 'Bearer ' + authToken;
+        } else {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tokenFromUrl = urlParams.get('token');
+            if (tokenFromUrl) {
+                 opts.headers['Authorization'] = 'Bearer ' + tokenFromUrl;
+            }
+        }
+
         const res = await fetch(url, opts);
         if (res.status === 401 || res.status === 403) {
             // alert('Unauthorized or Forbidden');
