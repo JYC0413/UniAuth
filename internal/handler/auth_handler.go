@@ -75,6 +75,29 @@ func Login(c *gin.Context) {
 }
 
 func Logout(c *gin.Context) {
+	// Get token from cookie or header
+	tokenString, err := c.Cookie("auth_token")
+	if err != nil {
+		tokenString = c.GetHeader("Authorization")
+		if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
+			tokenString = tokenString[7:]
+		}
+	}
+
+	if tokenString != "" {
+		// Parse token to get expiration time
+		claims, err := utils.ParseToken(tokenString)
+		if err == nil {
+			// Add to blacklist
+			blacklistEntry := model.SysTokenBlacklist{
+				Token:     tokenString,
+				ExpiresAt: claims.ExpiresAt.Time,
+				CreatedAt: time.Now(),
+			}
+			database.DB.Create(&blacklistEntry)
+		}
+	}
+
 	c.SetCookie("auth_token", "", -1, "/", "", false, true)
 	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
 }

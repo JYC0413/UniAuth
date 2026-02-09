@@ -1286,7 +1286,7 @@
     }
 
     function toggleCustomScope() {
-        const val = document.getElementById('roleDataScopeSelect').value;
+        const val = parseInt(document.getElementById('roleDataScopeSelect').value);
         if (val === 4) {
             document.getElementById('customScopeConfig').classList.remove('hidden');
         } else {

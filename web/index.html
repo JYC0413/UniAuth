@@ -172,9 +172,13 @@
                     const data = await response.json();
                     if (data.data.redirect_url) {
                         let redirectUrl = data.data.redirect_url;
-                        if (token) {
+
+                        // Use the token passed in (from login) OR the one returned by my-mask (from cookie)
+                        const tokenToUse = token || data.data.token;
+
+                        if (tokenToUse) {
                             const separator = redirectUrl.includes('?') ? '&' : '?';
-                            redirectUrl += separator + 'token=' + encodeURIComponent(token);
+                            redirectUrl += separator + 'token=' + encodeURIComponent(tokenToUse);
                         }
                         window.location.href = redirectUrl;
                     }

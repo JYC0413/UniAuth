@@ -94,6 +94,14 @@ type SysUserRelation struct {
 	Subordinate SysUser `gorm:"foreignKey:SubordinateID" json:"subordinate"`
 }
 
+// SysTokenBlacklist Token黑名单表
+type SysTokenBlacklist struct {
+	ID        uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
+	Token     string    `gorm:"type:varchar(512);uniqueIndex;not null" json:"token"`
+	ExpiresAt time.Time `gorm:"index;not null" json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 func (SysPermission) TableName() string {
 	return "sys_permissions"
 }
@@ -124,4 +132,8 @@ func (SysAppMember) TableName() string {
 
 func (SysUserRelation) TableName() string {
 	return "sys_user_relations"
+}
+
+func (SysTokenBlacklist) TableName() string {
+	return "sys_token_blacklist"
 }

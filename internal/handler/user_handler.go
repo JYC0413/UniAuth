@@ -33,16 +33,25 @@ func GetUserMask(c *gin.Context) {
 	}
 
 	var userRoles []model.SysUserRole
-	// Preload Role to get PermissionMask
-	if err := database.DB.Preload("Role").Where("user_id = ? AND app_id = ?", userID, app.ID).Find(&userRoles).Error; err != nil {
+	// Preload Role and DataScope to get PermissionMask and DataScope
+	if err := database.DB.Preload("Role.DataScope").Where("user_id = ? AND app_id = ?", userID, app.ID).Find(&userRoles).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user roles"})
 		return
 	}
 
 	finalMask := new(big.Int)
+	var dataScopes []gin.H
+
 	for _, ur := range userRoles {
 		roleMask := utils.ParseMask(ur.Role.PermissionMask)
 		finalMask.Or(finalMask, roleMask)
+
+		if ur.Role.DataScope != nil {
+			dataScopes = append(dataScopes, gin.H{
+				"scope_type":    ur.Role.DataScope.ScopeType,
+				"custom_config": ur.Role.DataScope.CustomConfig,
+			})
+		}
 	}
 
 	// Retrieve token to return to frontend so it can be passed to subsystems
@@ -59,6 +68,7 @@ func GetUserMask(c *gin.Context) {
 		"data": gin.H{
 			"uid":          userID,
 			"mask":         utils.MaskToHex(finalMask),
+			"data_scopes":  dataScopes,
 			"redirect_url": app.RedirectURL,
 			"token":        tokenString,
 		},
