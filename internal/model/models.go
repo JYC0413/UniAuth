@@ -30,13 +30,25 @@ type SysPermission struct {
 
 // SysRole 角色表
 type SysRole struct {
-	ID             uint64 `gorm:"primaryKey;autoIncrement" json:"id"`
-	AppID          uint64 `gorm:"index;not null" json:"app_id"`
-	Name           string `gorm:"type:varchar(50);not null" json:"name"`
-	PermissionMask string `gorm:"type:char(32);not null;default:'00000000000000000000000000000000'" json:"permission_mask"` // 128位 Hex 字符串
+	ID    uint64 `gorm:"primaryKey;autoIncrement" json:"id"`
+	AppID uint64 `gorm:"index;not null" json:"app_id"`
+	Name  string `gorm:"type:varchar(50);not null" json:"name"`
 
-	App       SysApp            `gorm:"foreignKey:AppID" json:"-"`
-	DataScope *SysRoleDataScope `gorm:"foreignKey:RoleID;constraint:OnDelete:CASCADE" json:"data_scope,omitempty"`
+	// PermissionMask is not stored in DB anymore, but populated for API compatibility
+	PermissionMask string `gorm:"-" json:"permission_mask"`
+
+	App             SysApp                  `gorm:"foreignKey:AppID" json:"-"`
+	DataScope       *SysRoleDataScope       `gorm:"foreignKey:RoleID;constraint:OnDelete:CASCADE" json:"data_scope,omitempty"`
+	PermissionMasks []SysRolePermissionMask `gorm:"foreignKey:RoleID;constraint:OnDelete:CASCADE" json:"permission_masks,omitempty"`
+}
+
+// SysRolePermissionMask 角色权限位分段表
+type SysRolePermissionMask struct {
+	RoleID      uint64 `gorm:"primaryKey;autoIncrement:false" json:"role_id"`
+	BucketIndex int16  `gorm:"primaryKey;autoIncrement:false;type:smallint" json:"bucket_index"` // 0: 0-63, 1: 64-127...
+	Mask        int64  `gorm:"type:bigint;not null;default:0" json:"mask"`                       // 64位掩码
+
+	Role SysRole `gorm:"foreignKey:RoleID" json:"-"`
 }
 
 // SysRoleDataScope 角色数据范围表
@@ -108,6 +120,10 @@ func (SysPermission) TableName() string {
 
 func (SysRole) TableName() string {
 	return "sys_roles"
+}
+
+func (SysRolePermissionMask) TableName() string {
+	return "sys_role_permission_masks"
 }
 
 func (SysRoleDataScope) TableName() string {

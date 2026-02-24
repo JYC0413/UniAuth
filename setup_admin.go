@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math/big"
 	"os"
 	"strings"
 
 	"UniAuth/internal/config"
 	"UniAuth/internal/database"
 	"UniAuth/internal/model"
+	"UniAuth/internal/utils"
 )
 
 func main() {
@@ -41,12 +43,14 @@ func main() {
 	fullMask := "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
 
 	var role model.SysRole
-	if err := database.DB.Where("app_id = ? AND name = ?", app.ID, "Super Admin").First(&role).Error; err != nil {
+	// Check if role exists
+	result := database.DB.Where("app_id = ? AND name = ?", app.ID, "Super Admin").First(&role)
+
+	if result.Error != nil {
 		log.Println("Creating 'Super Admin' role...")
 		role = model.SysRole{
-			AppID:          app.ID,
-			Name:           "Super Admin",
-			PermissionMask: fullMask,
+			AppID: app.ID,
+			Name:  "Super Admin",
 		}
 		if err := database.DB.Create(&role).Error; err != nil {
 			log.Fatal("Failed to create role:", err)
@@ -61,9 +65,15 @@ func main() {
 			log.Fatal("Failed to create data scope:", err)
 		}
 
+		// Create Permission Masks
+		createPermissionMasks(role.ID, fullMask)
+
 	} else {
 		log.Println("Role 'Super Admin' already exists. Updating mask to full permissions...")
-		database.DB.Model(&role).Update("permission_mask", fullMask)
+		// Update masks
+		// First delete existing
+		database.DB.Delete(&model.SysRolePermissionMask{}, "role_id = ?", role.ID)
+		createPermissionMasks(role.ID, fullMask)
 
 		// Ensure Data Scope exists
 		var ds model.SysRoleDataScope
@@ -109,5 +119,27 @@ func main() {
 		fmt.Println("You can now login and access: http://localhost:8080/admin")
 	} else {
 		fmt.Println("\n⚠️  User is already an Admin.")
+	}
+}
+
+func createPermissionMasks(roleID uint64, hexMask string) {
+	maskBigInt := utils.ParseMask(hexMask)
+	bucketIndex := int16(0)
+	// If mask is 0, loop won't run, which is fine (sparse storage)
+	// But we need to handle the case where maskBigInt > 0
+	for maskBigInt.Sign() > 0 {
+		lower64 := new(big.Int).And(maskBigInt, new(big.Int).SetUint64(^uint64(0)))
+		maskVal := lower64.Int64()
+
+		if maskVal != 0 {
+			permMask := model.SysRolePermissionMask{
+				RoleID:      roleID,
+				BucketIndex: bucketIndex,
+				Mask:        maskVal,
+			}
+			database.DB.Create(&permMask)
+		}
+		maskBigInt.Rsh(maskBigInt, 64)
+		bucketIndex++
 	}
 }

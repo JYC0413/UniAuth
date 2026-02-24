@@ -33,8 +33,8 @@ func GetUserMask(c *gin.Context) {
 	}
 
 	var userRoles []model.SysUserRole
-	// Preload Role and DataScope to get PermissionMask and DataScope
-	if err := database.DB.Preload("Role.DataScope").Where("user_id = ? AND app_id = ?", userID, app.ID).Find(&userRoles).Error; err != nil {
+	// Preload Role, DataScope, and PermissionMasks
+	if err := database.DB.Preload("Role.DataScope").Preload("Role.PermissionMasks").Where("user_id = ? AND app_id = ?", userID, app.ID).Find(&userRoles).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user roles"})
 		return
 	}
@@ -43,8 +43,14 @@ func GetUserMask(c *gin.Context) {
 	var dataScopes []gin.H
 
 	for _, ur := range userRoles {
-		roleMask := utils.ParseMask(ur.Role.PermissionMask)
-		finalMask.Or(finalMask, roleMask)
+		// Reconstruct mask from buckets
+		for _, pm := range ur.Role.PermissionMasks {
+			uVal := uint64(pm.Mask)
+			bucketBig := new(big.Int).SetUint64(uVal)
+			shift := uint(pm.BucketIndex) * 64
+			bucketBig.Lsh(bucketBig, shift)
+			finalMask.Or(finalMask, bucketBig)
+		}
 
 		if ur.Role.DataScope != nil {
 			dataScopes = append(dataScopes, gin.H{

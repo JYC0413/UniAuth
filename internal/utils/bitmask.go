@@ -11,22 +11,9 @@ func ParseMask(hexStr string) *big.Int {
 	return i
 }
 
-// MaskToHex 将 BigInt 转为 32位 Hex String
+// MaskToHex 将 BigInt 转为 Hex String
 func MaskToHex(mask *big.Int) string {
-	hex := mask.Text(16)
-	// Pad with leading zeros to ensure 32 chars length if needed,
-	// though PRD says char(32), usually we just store the hex string.
-	// Let's ensure it fits the format if strictly required, but usually variable length is fine unless fixed width char(32) in DB.
-	// For char(32) in DB, we might need padding.
-	// Simple padding:
-	for len(hex) < 32 {
-		hex = "0" + hex
-	}
-	if len(hex) > 32 {
-		// Should not happen for 128 bit, but just in case
-		hex = hex[len(hex)-32:]
-	}
-	return hex
+	return mask.Text(16)
 }
 
 // CalculateMask 计算权限掩码
@@ -34,7 +21,7 @@ func CalculateMask(indices []int16) *big.Int {
 	mask := new(big.Int)
 	one := big.NewInt(1)
 	for _, idx := range indices {
-		if idx >= 0 && idx < 128 {
+		if idx >= 0 {
 			bit := new(big.Int).Lsh(one, uint(idx))
 			mask.Or(mask, bit)
 		}

@@ -117,10 +117,7 @@ func CreateAppPermission(c *gin.Context) {
 		nextIndex = *maxIndex + 1
 	}
 
-	if nextIndex > 127 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Permission limit reached (max 128)"})
-		return
-	}
+	// Removed 127 limit check for infinite scalability
 
 	perm := model.SysPermission{
 		AppID:          uint64(appID),
@@ -153,9 +150,6 @@ func UpdateAppPermission(c *gin.Context) {
 	if req.PermissionCode != "" {
 		updates["permission_code"] = req.PermissionCode
 	}
-	// Allow updating description even if empty? Assuming yes, but usually we check if provided.
-	// Since it's JSON, if it's missing it's empty string.
-	// Let's just update it.
 	updates["description"] = req.Description
 
 	if err := database.DB.Model(&model.SysPermission{}).Where("id = ?", permID).Updates(updates).Error; err != nil {
@@ -236,9 +230,7 @@ func BatchCreateAppPermissions(c *gin.Context) {
 					if maxIndex != nil {
 						nextIndex = *maxIndex + 1
 					}
-					if nextIndex > 127 {
-						return gorm.ErrInvalidData
-					}
+					// Removed 127 limit check
 					perm.BitIndex = int16(nextIndex)
 				}
 
@@ -265,27 +257,53 @@ func BatchCreateAppPermissions(c *gin.Context) {
 func ListAppRoles(c *gin.Context) {
 	appID := c.Param("app_id")
 	var roles []model.SysRole
-	// Preload DataScope
-	if err := database.DB.Preload("DataScope").Where("app_id = ?", appID).Find(&roles).Error; err != nil {
+	// Preload DataScope and PermissionMasks
+	if err := database.DB.Preload("DataScope").Preload("PermissionMasks").Where("app_id = ?", appID).Find(&roles).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch roles"})
 		return
 	}
+
+	// Populate PermissionMask field for API compatibility
+	for i := range roles {
+		finalMask := new(big.Int)
+		for _, pm := range roles[i].PermissionMasks {
+			uVal := uint64(pm.Mask)
+			bucketBig := new(big.Int).SetUint64(uVal)
+			shift := uint(pm.BucketIndex) * 64
+			bucketBig.Lsh(bucketBig, shift)
+			finalMask.Or(finalMask, bucketBig)
+		}
+		roles[i].PermissionMask = utils.MaskToHex(finalMask)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"data": roles})
 }
 
 func GetRole(c *gin.Context) {
 	roleID := c.Param("role_id")
 	var role model.SysRole
-	if err := database.DB.Preload("DataScope").First(&role, roleID).Error; err != nil {
+	if err := database.DB.Preload("DataScope").Preload("PermissionMasks").First(&role, roleID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Role not found"})
 		return
 	}
+
+	// Populate PermissionMask field for API compatibility
+	finalMask := new(big.Int)
+	for _, pm := range role.PermissionMasks {
+		uVal := uint64(pm.Mask)
+		bucketBig := new(big.Int).SetUint64(uVal)
+		shift := uint(pm.BucketIndex) * 64
+		bucketBig.Lsh(bucketBig, shift)
+		finalMask.Or(finalMask, bucketBig)
+	}
+	role.PermissionMask = utils.MaskToHex(finalMask)
+
 	c.JSON(http.StatusOK, gin.H{"data": role})
 }
 
 type CreateRoleRequest struct {
 	Name           string `json:"name" binding:"required"`
-	PermissionMask string `json:"permission_mask"` // Optional initial mask
+	PermissionMask string `json:"permission_mask"` // Optional initial mask (Hex string)
 }
 
 func CreateAppRole(c *gin.Context) {
@@ -302,18 +320,12 @@ func CreateAppRole(c *gin.Context) {
 		return
 	}
 
-	mask := "00000000000000000000000000000000"
-	if req.PermissionMask != "" {
-		mask = req.PermissionMask
-	}
-
 	role := model.SysRole{
-		AppID:          uint64(appID),
-		Name:           req.Name,
-		PermissionMask: mask,
+		AppID: uint64(appID),
+		Name:  req.Name,
 	}
 
-	// Transaction to create role and default data scope
+	// Transaction to create role, default data scope, and permission masks
 	err = database.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&role).Error; err != nil {
 			return err
@@ -326,6 +338,45 @@ func CreateAppRole(c *gin.Context) {
 		if err := tx.Create(&dataScope).Error; err != nil {
 			return err
 		}
+
+		// Handle Permission Mask if provided
+		if req.PermissionMask != "" {
+			maskBigInt := utils.ParseMask(req.PermissionMask)
+			// Split into buckets
+			// Assuming 64-bit buckets.
+			// We need to iterate through bits of the BigInt and set appropriate buckets.
+			// Or simpler: iterate 0 to max bit length of BigInt.
+			// Since ParseMask returns a BigInt, we can check bits.
+			// However, BigInt doesn't easily give "max set bit" without calculation.
+			// Let's assume we support up to some reasonable number or just iterate until 0.
+			// Actually, we can just iterate through buckets until the mask is consumed.
+
+			// But wait, the input is a Hex string representing the FULL mask.
+			// We need to slice this BigInt into 64-bit chunks.
+
+			bucketIndex := int16(0)
+			for maskBigInt.Sign() > 0 {
+				// Get lower 64 bits
+				lower64 := new(big.Int).And(maskBigInt, new(big.Int).SetUint64(^uint64(0)))
+				maskVal := lower64.Int64()
+
+				if maskVal != 0 {
+					permMask := model.SysRolePermissionMask{
+						RoleID:      role.ID,
+						BucketIndex: bucketIndex,
+						Mask:        maskVal,
+					}
+					if err := tx.Create(&permMask).Error; err != nil {
+						return err
+					}
+				}
+
+				// Shift right by 64
+				maskBigInt.Rsh(maskBigInt, 64)
+				bucketIndex++
+			}
+		}
+
 		return nil
 	})
 
@@ -333,6 +384,20 @@ func CreateAppRole(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create role"})
 		return
 	}
+	// Reload role to include relations
+	database.DB.Preload("PermissionMasks").First(&role, role.ID)
+
+	// Populate PermissionMask field for API compatibility
+	finalMask := new(big.Int)
+	for _, pm := range role.PermissionMasks {
+		uVal := uint64(pm.Mask)
+		bucketBig := new(big.Int).SetUint64(uVal)
+		shift := uint(pm.BucketIndex) * 64
+		bucketBig.Lsh(bucketBig, shift)
+		finalMask.Or(finalMask, bucketBig)
+	}
+	role.PermissionMask = utils.MaskToHex(finalMask)
+
 	c.JSON(http.StatusCreated, gin.H{"data": role})
 }
 
@@ -343,7 +408,9 @@ type UpdateRoleRequest struct {
 }
 
 func UpdateRole(c *gin.Context) {
-	roleID := c.Param("role_id")
+	roleIDStr := c.Param("role_id")
+	roleID := parseUint(roleIDStr)
+
 	var req UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -353,8 +420,29 @@ func UpdateRole(c *gin.Context) {
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		// Update Mask if provided
 		if req.PermissionMask != "" {
-			if err := tx.Model(&model.SysRole{}).Where("id = ?", roleID).Update("permission_mask", req.PermissionMask).Error; err != nil {
+			// First, delete existing masks for this role
+			if err := tx.Delete(&model.SysRolePermissionMask{}, "role_id = ?", roleID).Error; err != nil {
 				return err
+			}
+
+			maskBigInt := utils.ParseMask(req.PermissionMask)
+			bucketIndex := int16(0)
+			for maskBigInt.Sign() > 0 {
+				lower64 := new(big.Int).And(maskBigInt, new(big.Int).SetUint64(^uint64(0)))
+				maskVal := lower64.Int64()
+
+				if maskVal != 0 {
+					permMask := model.SysRolePermissionMask{
+						RoleID:      roleID,
+						BucketIndex: bucketIndex,
+						Mask:        maskVal,
+					}
+					if err := tx.Create(&permMask).Error; err != nil {
+						return err
+					}
+				}
+				maskBigInt.Rsh(maskBigInt, 64)
+				bucketIndex++
 			}
 		}
 
@@ -366,7 +454,7 @@ func UpdateRole(c *gin.Context) {
 				if result.Error == gorm.ErrRecordNotFound {
 					// Create if not exists
 					scope = model.SysRoleDataScope{
-						RoleID:       parseUint(roleID),
+						RoleID:       roleID,
 						ScopeType:    req.ScopeType,
 						CustomConfig: req.CustomConfig,
 					}
@@ -553,9 +641,6 @@ func GetUserAppRole(c *gin.Context) {
 }
 
 // --- Helper for Admin Check ---
-// In a real scenario, this would check if the current user has admin permissions for the 'uniauth-admin' app.
-// For simplicity in this demo, we might skip complex checks or just check for a specific flag.
-// But per PRD, we should check permissions.
 
 func CheckAdminPermission(c *gin.Context) {
 	userIDStr, exists := c.Get("userID")
@@ -568,27 +653,39 @@ func CheckAdminPermission(c *gin.Context) {
 	// 1. Find 'uniauth-admin' app
 	var adminApp model.SysApp
 	if err := database.DB.Where("code = ?", "uniauth-admin").First(&adminApp).Error; err != nil {
-		// If admin app doesn't exist, maybe first run? Allow or Block?
-		// Let's block for safety, admin app must be seeded.
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Admin system not initialized"})
 		return
 	}
 
 	// 2. Get User's Mask for 'uniauth-admin'
 	var userRoles []model.SysUserRole
-	if err := database.DB.Preload("Role").Where("user_id = ? AND app_id = ?", userID, adminApp.ID).Find(&userRoles).Error; err != nil {
+	if err := database.DB.Preload("Role.PermissionMasks").Where("user_id = ? AND app_id = ?", userID, adminApp.ID).Find(&userRoles).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to check permissions"})
 		return
 	}
 
 	finalMask := new(big.Int)
 	for _, ur := range userRoles {
-		roleMask := utils.ParseMask(ur.Role.PermissionMask)
-		finalMask.Or(finalMask, roleMask)
+		for _, pm := range ur.Role.PermissionMasks {
+			// Reconstruct BigInt from buckets
+			// Handle negative int64 (two's complement) if necessary, but big.NewInt handles int64 correctly.
+			// However, we treated it as unsigned bits.
+			// If the top bit of int64 is set, it's negative.
+			// We want the unsigned 64-bit value.
+			// Go's big.NewInt takes int64.
+			// If we want to treat it as uint64, we should use SetUint64.
+			// Since we stored it as int64 in DB (Postgres bigint), we need to be careful.
+			// Let's cast to uint64 before setting to BigInt to be safe.
+			uVal := uint64(pm.Mask)
+			bucketBig := new(big.Int).SetUint64(uVal)
+
+			shift := uint(pm.BucketIndex) * 64
+			bucketBig.Lsh(bucketBig, shift)
+			finalMask.Or(finalMask, bucketBig)
+		}
 	}
 
 	// 3. Check if mask is non-zero (Basic check: is an admin)
-	// In a real granular system, we would check specific bits like 'app:create' etc.
 	if finalMask.Cmp(big.NewInt(0)) == 0 {
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
