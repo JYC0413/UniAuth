@@ -287,6 +287,7 @@
         .mt-4 { margin-top: 1rem; }
         .mb-4 { margin-bottom: 1rem; }
         .text-muted { color: var(--text-muted); font-size: 0.9rem; }
+        .highlight { background-color: #fef08a; color: black; }
 
         /* Tabs */
         .tabs {
@@ -438,6 +439,34 @@
         .role-editor-container { display: flex; flex-direction: column; height: 100%; }
         .role-badge { background: #e0e7ff; color: #3730a3; padding: 0.125rem 0.5rem; border-radius: 0.75rem; font-size: 0.75rem; margin-right: 0.25rem; display: inline-block; margin-bottom: 0.125rem; }
 
+        /* Loading & States */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid var(--primary-color);
+            width: 24px;
+            height: 24px;
+            -webkit-animation: spin 1s linear infinite; /* Safari */
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .state-message {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .error-message {
+            color: var(--danger-color);
+        }
+
         /* Responsive Media Queries */
         @media (max-width: 768px) {
             body { flex-direction: column; }
@@ -554,6 +583,10 @@
                                 </button>
                             </div>
                         </div>
+                        <div class="mb-4 flex items-center">
+                            <input type="text" id="permSearch" placeholder="Search permissions..." oninput="debouncedPermSearch(this.value)" style="width: auto; flex-grow: 1;">
+                            <span id="permSearchCount" class="text-muted" style="margin-left: 1rem; white-space: nowrap;"></span>
+                        </div>
                         <div id="permsTree" class="tree-container">
                             <!-- Tree content will go here -->
                         </div>
@@ -622,6 +655,10 @@
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title">Permissions</h3>
+                </div>
+                <div style="padding: 0 1.5rem 1rem 1.5rem;" class="flex items-center">
+                    <input type="text" id="rolePermSearch" placeholder="Search permissions..." oninput="debouncedRolePermSearch(this.value)" style="width: auto; flex-grow: 1;">
+                    <span id="rolePermSearchCount" class="text-muted" style="margin-left: 1rem; white-space: nowrap;"></span>
                 </div>
                 <div id="rolePermsEditor" class="role-editor-container">
                     <!-- Accordion will go here -->
@@ -795,6 +832,142 @@
     let currentUserMask = 0n;
     let permissionDict = {}; // code -> bit_index
     let authToken = null; // Store token globally
+    let editingRoleMask = 0n;
+    let roleEditorPerms = [];
+    let currentAppPerms = [];
+
+    // --- Helpers ---
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+    const debouncedPermSearch = debounce((val) => {
+        renderPermissionTree(currentAppPerms, val);
+    }, 300);
+
+    const debouncedRolePermSearch = debounce((val) => {
+        renderRolePermissionsEditor(roleEditorPerms, val);
+    }, 300);
+
+    function buildTree(perms) {
+        const tree = {};
+        perms.forEach(p => {
+            const parts = p.permission_code.split(':');
+            let currentLevel = tree;
+            parts.forEach((part, index) => {
+                if (!currentLevel[part]) {
+                    currentLevel[part] = {
+                        _children: {},
+                        _data: (index === parts.length - 1) ? p : null
+                    };
+                } else if (index === parts.length - 1) {
+                    currentLevel[part]._data = p;
+                }
+                currentLevel = currentLevel[part]._children;
+            });
+        });
+        return tree;
+    }
+
+    function filterTreeData(nodes, keyword) {
+        if (!keyword) return { filtered: nodes, hasMatch: true };
+
+        const filtered = {};
+        let hasMatch = false;
+        const lowerKeyword = keyword.toLowerCase();
+
+        Object.keys(nodes).forEach(key => {
+            const node = nodes[key];
+
+            // 1. Check self match
+            const selfMatch = key.toLowerCase().includes(lowerKeyword) ||
+                              (node._data && node._data.description && node._data.description.toLowerCase().includes(lowerKeyword));
+
+            if (selfMatch) {
+                hasMatch = true;
+                // Keep node and ALL children (stop recursion)
+                // Mark as self match
+                // Do NOT expand (collapsed by default)
+                filtered[key] = {
+                    ...node,
+                    _children: node._children, // Keep all children
+                    _expanded: false, // Collapsed
+                    _selfMatch: true
+                };
+            } else {
+                // 2. Check children (Recursion)
+                const childResult = filterTreeData(node._children, keyword);
+                if (childResult.hasMatch) {
+                    hasMatch = true;
+                    // Keep node with FILTERED children
+                    // Expand because it's a path
+                    filtered[key] = {
+                        ...node,
+                        _children: childResult.filtered,
+                        _expanded: true,
+                        _selfMatch: false
+                    };
+                }
+            }
+        });
+        return { filtered, hasMatch };
+    }
+
+    function countNodes(nodes) {
+        let count = 0;
+        Object.values(nodes).forEach(node => {
+            count++;
+            count += countNodes(node._children);
+        });
+        return count;
+    }
+
+    function highlightText(text, keyword) {
+        if (!keyword) return text;
+        const regex = new RegExp(`(${keyword})`, 'gi');
+        return text.replace(regex, '<span class="highlight">$1</span>');
+    }
+
+    function getIndices(node) {
+        let indices = [];
+        if (node._data) indices.push(node._data.bit_index);
+        Object.values(node._children).forEach(child => {
+            indices = indices.concat(getIndices(child));
+        });
+        return indices;
+    }
+
+    // --- UI Helpers for Loading/Error ---
+    function showLoading(el) {
+        const html = '<div class="loader"></div>';
+        if (el.tagName === 'TBODY') {
+            el.innerHTML = `<tr><td colspan="100%" style="text-align:center;">${html}</td></tr>`;
+        } else {
+            el.innerHTML = html;
+        }
+    }
+
+    function showError(el, msg = 'Failed to load data.') {
+        const html = `<div class="state-message error-message">⚠️ ${msg}</div>`;
+        if (el.tagName === 'TBODY') {
+            el.innerHTML = `<tr><td colspan="100%" style="text-align:center;">${html}</td></tr>`;
+        } else {
+            el.innerHTML = html;
+        }
+    }
+
+    function showEmpty(el, msg = 'No data found.') {
+        const html = `<div class="state-message">${msg}</div>`;
+        if (el.tagName === 'TBODY') {
+            el.innerHTML = `<tr><td colspan="100%" style="text-align:center;">${html}</td></tr>`;
+        } else {
+            el.innerHTML = html;
+        }
+    }
 
     // --- Initialization ---
     (async function init() {
@@ -993,26 +1166,37 @@
 
     // --- Apps ---
     async function loadApps() {
-        const res = await api('/api/v1/admin/apps');
-        if (!res) return;
         const tbody = document.querySelector('#appsTable tbody');
-        tbody.innerHTML = '';
+        showLoading(tbody);
+        try {
+            const res = await api('/api/v1/admin/apps');
+            if (!res) return;
 
-        const canManage = hasPermission('applications:manage');
+            if (!res.data || res.data.length === 0) {
+                showEmpty(tbody, 'No applications found.');
+                return;
+            }
 
-        res.data.forEach(app => {
-            const manageBtn = canManage
-                ? `<button class="sm" onclick="selectApp(${app.id}, '${app.name}')">Manage</button>`
-                : `<button class="sm disabled-btn" disabled>Manage</button>`;
+            tbody.innerHTML = '';
+            const canManage = hasPermission('applications:manage');
 
-            tbody.innerHTML += `
-                <tr>
-                    <td>${app.id}</td>
-                    <td><span style="font-family: monospace; background: #e5e7eb; padding: 2px 6px; border-radius: 4px;">${app.code}</span></td>
-                    <td>${app.name}</td>
-                    <td>${manageBtn}</td>
-                </tr>`;
-        });
+            res.data.forEach(app => {
+                const manageBtn = canManage
+                    ? `<button class="sm" onclick="selectApp(${app.id}, '${app.name}')">Manage</button>`
+                    : `<button class="sm disabled-btn" disabled>Manage</button>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${app.id}</td>
+                        <td><span style="font-family: monospace; background: #e5e7eb; padding: 2px 6px; border-radius: 4px;">${app.code}</span></td>
+                        <td>${app.name}</td>
+                        <td>${manageBtn}</td>
+                    </tr>`;
+            });
+        } catch (e) {
+            console.error(e);
+            showError(tbody);
+        }
     }
 
     function openCreateAppModal() {
@@ -1044,37 +1228,31 @@
     }
 
     // --- Permissions (Tree View) ---
-    let currentPermissions = [];
-
     async function loadPermissions(appId) {
-        const res = await api(`/api/v1/admin/apps/${appId}/permissions`);
-        if (!res) return;
-        currentPermissions = res.data || [];
-        renderPermissionTree(currentPermissions);
+        const container = document.getElementById('permsTree');
+        showLoading(container);
+        try {
+            const res = await api(`/api/v1/admin/apps/${appId}/permissions`);
+            if (!res) return;
+            currentAppPerms = res.data || [];
+            renderPermissionTree(currentAppPerms);
+        } catch (e) {
+            console.error(e);
+            showError(container);
+        }
     }
 
-    function renderPermissionTree(perms) {
+    function renderPermissionTree(perms, keyword = '') {
         const container = document.getElementById('permsTree');
         container.innerHTML = '';
 
-        // Build hierarchy based on colons in permission_code
-        const tree = {};
+        const tree = buildTree(perms);
+        const { filtered, hasMatch } = filterTreeData(tree, keyword);
 
-        perms.forEach(p => {
-            const parts = p.permission_code.split(':');
-            let currentLevel = tree;
-            parts.forEach((part, index) => {
-                if (!currentLevel[part]) {
-                    currentLevel[part] = {
-                        _children: {},
-                        _data: (index === parts.length - 1) ? p : null
-                    };
-                } else if (index === parts.length - 1) {
-                    currentLevel[part]._data = p;
-                }
-                currentLevel = currentLevel[part]._children;
-            });
-        });
+        // Update Count
+        const count = countNodes(filtered);
+        const countEl = document.getElementById('permSearchCount');
+        if (countEl) countEl.innerText = keyword ? `Found ${count} items` : '';
 
         const canEdit = hasPermission('applications:manage:permissions:edit');
         const canDelete = hasPermission('applications:manage:permissions:delete');
@@ -1085,6 +1263,13 @@
             const isLeaf = Object.keys(node._children).length === 0;
             const data = node._data;
             const currentPath = path ? path + '-' + name : name;
+
+            // Determine collapsed state
+            // If keyword is present, expand all matches (node._expanded is true)
+            // If keyword is empty, collapse by default (node._expanded is undefined/false)
+            const isCollapsed = !node._expanded;
+            const collapsedClass = isCollapsed ? 'collapsed' : '';
+            const togglerIcon = isCollapsed ? '▶' : '▼';
 
             let actionsHtml = '';
             if (data) {
@@ -1097,21 +1282,25 @@
                 actionsHtml = editBtn + ' ' + deleteBtn;
             }
 
+            // Only highlight if this node itself was a match in the filter
+            const displayName = (node._selfMatch) ? highlightText(name, keyword) : name;
+            const displayDesc = (data && node._selfMatch) ? highlightText(data.description || 'No desc', keyword) : (data ? (data.description || 'No desc') : '');
+
             html += `
                 <div class="tree-node">
                     <div class="tree-content" style="padding-left: ${padding}rem"  onclick="toggleTree('${currentPath}')">
-                        <span class="tree-toggler">
-                            ${!isLeaf ? '▼' : '•'}
+                        <span class="tree-toggler" style="visibility: ${!isLeaf ? 'visible' : 'hidden'}">
+                            ${!isLeaf ? togglerIcon : '•'}
                         </span>
-                        <span style="font-weight: 500; margin-left: 0.5rem;">${name}</span>
-                        ${data ? `<span style="margin-left: 0.75rem; color: var(--text-muted); font-size: 0.85rem;">(${data.description || 'No desc'})</span>` : ''}
+                        <span style="font-weight: 500; margin-left: 0.5rem;">${displayName}</span>
+                        ${data ? `<span style="margin-left: 0.75rem; color: var(--text-muted); font-size: 0.85rem;">(${displayDesc})</span>` : ''}
                         ${data ? `<span style="margin-left: 0.75rem; font-family: monospace; background: #e5e7eb; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.8rem;">Index: ${data.bit_index}</span>` : ''}
 
                         <div class="actions">
                             ${actionsHtml}
                         </div>
                     </div>
-                    <div id="children-${currentPath}" class="tree-children">
+                    <div id="children-${currentPath}" class="tree-children ${collapsedClass}">
                         ${Object.keys(node._children).map(key => createNodeHtml(key, node._children[key], level + 1, currentPath)).join('')}
                     </div>
                 </div>
@@ -1119,17 +1308,18 @@
             return html;
         }
 
-        Object.keys(tree).forEach(key => {
-            container.innerHTML += createNodeHtml(key, tree[key]);
+        Object.keys(filtered).forEach(key => {
+            container.innerHTML += createNodeHtml(key, filtered[key]);
         });
 
-        if (perms.length === 0) {
-            container.innerHTML = '<div style="text-align: center; padding: 2.5rem; color: var(--text-muted);">No permissions found. Add one to get started.</div>';
+        if (Object.keys(filtered).length === 0) {
+            showEmpty(container, 'No permissions found.');
         }
     }
 
     function toggleTree(path) {
         const children = document.getElementById('children-' + path);
+        if (!children) return;
         const toggler = children.previousElementSibling.querySelector('.tree-toggler');
         if (children.classList.contains('collapsed')) {
             children.classList.remove('collapsed');
@@ -1179,7 +1369,7 @@
 
     function openEditPermModal(id) {
         event.stopPropagation();
-        const perm = currentPermissions.find(p => p.id === id);
+        const perm = currentAppPerms.find(p => p.id === id);
         if (!perm) return;
         document.getElementById('permModalTitle').innerText = 'Edit Permission';
         document.getElementById('permId').value = perm.id;
@@ -1215,13 +1405,20 @@
 
     // --- Roles ---
     async function loadRoles(appId) {
-        const res = await api(`/api/v1/admin/apps/${appId}/roles`);
         const tbody = document.querySelector('#rolesTable tbody');
-        tbody.innerHTML = '';
+        showLoading(tbody);
+        try {
+            const res = await api(`/api/v1/admin/apps/${appId}/roles`);
+            if (!res) return;
 
-        const canEdit = hasPermission('applications:manage:roles:edit');
+            if (!res.data || res.data.length === 0) {
+                showEmpty(tbody, 'No roles found.');
+                return;
+            }
 
-        if (res && res.data) {
+            tbody.innerHTML = '';
+            const canEdit = hasPermission('applications:manage:roles:edit');
+
             res.data.forEach(r => {
                 let scopeLabel = 'Self';
                 if (r.data_scope) {
@@ -1241,6 +1438,9 @@
                         <td>${editBtn}</td>
                     </tr>`;
             });
+        } catch (e) {
+            console.error(e);
+            showError(tbody);
         }
     }
 
@@ -1266,22 +1466,34 @@
         document.getElementById('editRoleNameDisplay').innerText = roleName;
         document.getElementById('editingRoleId').value = roleId;
 
-        // Fetch Role Details (including Data Scope)
-        const roleRes = await api(`/api/v1/admin/roles/${roleId}`);
-        if (roleRes && roleRes.data) {
-            const role = roleRes.data;
-            if (role.data_scope) {
-                document.getElementById('roleDataScopeSelect').value = role.data_scope.scope_type;
-                document.getElementById('roleCustomConfig').value = role.data_scope.custom_config || '';
-            } else {
-                document.getElementById('roleDataScopeSelect').value = 1;
-                document.getElementById('roleCustomConfig').value = '';
-            }
-            toggleCustomScope();
+        const permContainer = document.getElementById('rolePermsEditor');
+        showLoading(permContainer);
 
-            // Fetch perms to build checkboxes
-            const permsRes = await api(`/api/v1/admin/apps/${appId}/permissions`);
-            renderRolePermissionsEditor(permsRes.data, role.permission_mask);
+        try {
+            // Fetch Role Details (including Data Scope)
+            const roleRes = await api(`/api/v1/admin/roles/${roleId}`);
+            if (roleRes && roleRes.data) {
+                const role = roleRes.data;
+                if (role.data_scope) {
+                    document.getElementById('roleDataScopeSelect').value = role.data_scope.scope_type;
+                    document.getElementById('roleCustomConfig').value = role.data_scope.custom_config || '';
+                } else {
+                    document.getElementById('roleDataScopeSelect').value = 1;
+                    document.getElementById('roleCustomConfig').value = '';
+                }
+                toggleCustomScope();
+
+                // Initialize Mask
+                editingRoleMask = BigInt('0x' + role.permission_mask);
+
+                // Fetch perms to build checkboxes
+                const permsRes = await api(`/api/v1/admin/apps/${appId}/permissions`);
+                roleEditorPerms = permsRes.data || [];
+                renderRolePermissionsEditor(roleEditorPerms);
+            }
+        } catch (e) {
+            console.error(e);
+            showError(permContainer);
         }
     }
 
@@ -1294,38 +1506,26 @@
         }
     }
 
-    function renderRolePermissionsEditor(perms, currentMaskHex) {
+    function renderRolePermissionsEditor(perms, keyword = '') {
         const container = document.getElementById('rolePermsEditor');
         container.innerHTML = '';
 
-        let maskVal = BigInt('0x' + currentMaskHex);
+        const tree = buildTree(perms);
+        const { filtered, hasMatch } = filterTreeData(tree, keyword);
 
-        // Build hierarchy
-        const tree = {};
-        perms.forEach(p => {
-            const parts = p.permission_code.split(':');
-            let currentLevel = tree;
-            parts.forEach((part, index) => {
-                if (!currentLevel[part]) {
-                    currentLevel[part] = {
-                        _children: {},
-                        _data: (index === parts.length - 1) ? p : null
-                    };
-                } else if (index === parts.length - 1) {
-                    currentLevel[part]._data = p;
-                }
-                currentLevel = currentLevel[part]._children;
-            });
-        });
+        // Update Count
+        const count = countNodes(filtered);
+        const countEl = document.getElementById('rolePermSearchCount');
+        if (countEl) countEl.innerText = keyword ? `Found ${count} items` : '';
 
-        // Helper to count stats
+        // Helper to count stats (based on editingRoleMask)
         function getStats(node) {
             let total = 0;
             let checked = 0;
             if (node._data) {
                 total++;
                 const bitVal = 1n << BigInt(node._data.bit_index);
-                if ((maskVal & bitVal) === bitVal) checked++;
+                if ((editingRoleMask & bitVal) === bitVal) checked++;
             }
             Object.values(node._children).forEach(child => {
                 const s = getStats(child);
@@ -1346,30 +1546,42 @@
             let isChecked = false;
             if (data) {
                 const bitVal = 1n << BigInt(data.bit_index);
-                isChecked = (maskVal & bitVal) === bitVal;
+                isChecked = (editingRoleMask & bitVal) === bitVal;
             }
+
+            const allIndices = getIndices(node);
+
+            // Only highlight if this node itself was a match in the filter
+            const displayName = (node._selfMatch) ? highlightText(name, keyword) : name;
+            const displayDesc = (data && node._selfMatch) ? highlightText(data.description || 'No desc', keyword) : (data ? (data.description || 'No desc') : '');
+
+            // Collapsed state logic
+            const isCollapsed = !node._expanded;
+            const collapsedClass = isCollapsed ? 'collapsed' : '';
+            const togglerIcon = isCollapsed ? '▶' : '▼';
 
             html += `
                 <div class="tree-node">
                     <div class="tree-content" style="padding-left: ${padding}rem">
                         <span class="tree-toggler" onclick="toggleTree('${currentPath}')" style="visibility: ${!isLeaf ? 'visible' : 'hidden'}">
-                            ${!isLeaf ? '▼' : '•'}
+                            ${!isLeaf ? togglerIcon : '•'}
                         </span>
 
                         <label style="display: flex; align-items: center; cursor: pointer; margin-left: 0.5rem;">
                             <input type="checkbox" class="role-perm-check"
                                    id="cb-${currentPath}"
                                    data-path="${currentPath}"
+                                   data-indices="${allIndices.join(',')}"
                                    ${data ? `value="${data.bit_index}"` : ''}
                                    ${isChecked ? 'checked' : ''}
                                    onchange="handleRolePermCheck(this, '${currentPath}')">
-                            <span style="margin-left: 0.5rem; font-weight: 500;">${name}</span>
+                            <span style="margin-left: 0.5rem; font-weight: 500;">${displayName}</span>
                         </label>
 
                         ${!isLeaf ? `<span class="select-all-link" id="link-${currentPath}" onclick="selectAllChildren(event, '${currentPath}')">Select All</span>` : ''}
-                        ${data ? `<span style="margin-left: 0.75rem; color: var(--text-muted); font-size: 0.85rem;">(${data.description || 'No desc'})</span>` : ''}
+                        ${data ? `<span style="margin-left: 0.75rem; color: var(--text-muted); font-size: 0.85rem;">(${displayDesc})</span>` : ''}
                     </div>
-                    <div id="children-${currentPath}" class="tree-children">
+                    <div id="children-${currentPath}" class="tree-children ${collapsedClass}">
                         ${Object.keys(node._children).map(key => createTreeHtml(key, node._children[key], level + 1, currentPath)).join('')}
                     </div>
                 </div>
@@ -1377,8 +1589,8 @@
             return html;
         }
 
-        Object.keys(tree).forEach(key => {
-            const node = tree[key];
+        Object.keys(filtered).forEach(key => {
+            const node = filtered[key];
             const stats = getStats(node);
             const isAllChecked = stats.total > 0 && stats.total === stats.checked;
             const accordionId = `acc-${key}`;
@@ -1390,30 +1602,40 @@
                  selfHtml = createTreeHtml(key + " (Self)", { _data: node._data, _children: {} }, 0, key);
             }
 
+            // Accordion expansion
+            const isOpen = node._expanded;
+            const openClass = isOpen ? 'open' : '';
+            const icon = isOpen ? '▼' : '▶';
+
             container.innerHTML += `
                 <div class="accordion-item" id="${accordionId}">
                     <div class="accordion-header" onclick="toggleAccordion('${accordionId}')">
                         <div class="accordion-title">
-                            <span id="icon-${accordionId}">▶</span>
-                            <span>${key}</span>
+                            <span id="icon-${accordionId}">${icon}</span>
+                            <span>${(node._selfMatch) ? highlightText(key, keyword) : key}</span>
                         </div>
                         <div style="display: flex; align-items: center;" onclick="event.stopPropagation()">
                             <span class="accordion-summary" id="summary-${accordionId}">Selected ${stats.checked}/${stats.total}</span>
                             <label class="switch" style="margin-left: 10px;">
                                 <input type="checkbox" id="group-cb-${key}"
+                                    data-indices="${getIndices(node).join(',')}"
                                     ${isAllChecked ? 'checked' : ''}
-                                    onchange="toggleGroup('${key}', this.checked)">
+                                    onchange="toggleGroup('${key}', this)">
                                 <span class="slider"></span>
                             </label>
                         </div>
                     </div>
-                    <div class="accordion-body">
+                    <div class="accordion-body ${openClass}">
                         ${selfHtml}
                         ${childrenHtml}
                     </div>
                 </div>
             `;
         });
+
+        if (Object.keys(filtered).length === 0) {
+            showEmpty(container, 'No permissions found.');
+        }
 
         updateSelectAllLinks();
     }
@@ -1431,24 +1653,50 @@
         }
     }
 
-    function toggleGroup(rootKey, isChecked) {
+    function toggleGroup(rootKey, source) {
+        const isChecked = source.checked;
+        const indicesStr = source.getAttribute('data-indices');
+        if (indicesStr) {
+             const indices = indicesStr.split(',');
+             indices.forEach(idx => {
+                 const bit = 1n << BigInt(idx);
+                 if (isChecked) editingRoleMask |= bit;
+                 else editingRoleMask &= ~bit;
+             });
+        }
+
+        // Update DOM (visible items)
         const accordionId = `acc-${rootKey}`;
         const item = document.getElementById(accordionId);
         const checkboxes = item.querySelectorAll('.role-perm-check');
         checkboxes.forEach(cb => cb.checked = isChecked);
+
         updateGroupSummary(rootKey);
         updateSelectAllLinks();
     }
 
     function handleRolePermCheck(source, path) {
         const isChecked = source.checked;
+
+        // Update Mask
+        const indicesStr = source.getAttribute('data-indices');
+        if (indicesStr) {
+            const indices = indicesStr.split(',');
+            indices.forEach(idx => {
+                const bit = 1n << BigInt(idx);
+                if (isChecked) editingRoleMask |= bit;
+                else editingRoleMask &= ~bit;
+            });
+        }
+
+        // Update children in DOM (if visible)
         const childrenContainer = document.getElementById('children-' + path);
         if (childrenContainer) {
             const childCheckboxes = childrenContainer.querySelectorAll('input[type="checkbox"]');
             childCheckboxes.forEach(cb => cb.checked = isChecked);
         }
-        updateSelectAllLinks();
 
+        updateSelectAllLinks();
         const rootKey = path.split('-')[0];
         updateGroupSummary(rootKey);
     }
@@ -1458,16 +1706,12 @@
         const link = document.getElementById('link-' + path);
         if (link && link.classList.contains('disabled')) return;
 
-        const childrenContainer = document.getElementById('children-' + path);
-        if (childrenContainer) {
-            const childCheckboxes = childrenContainer.querySelectorAll('input[type="checkbox"]');
-            childCheckboxes.forEach(cb => cb.checked = true);
-            const currentCb = document.getElementById('cb-' + path);
-            if (currentCb) currentCb.checked = true;
+        // Find the checkbox for this path
+        const currentCb = document.getElementById('cb-' + path);
+        if (currentCb) {
+            currentCb.checked = true;
+            handleRolePermCheck(currentCb, path);
         }
-        updateSelectAllLinks();
-        const rootKey = path.split('-')[0];
-        updateGroupSummary(rootKey);
     }
 
     function updateSelectAllLinks() {
@@ -1484,8 +1728,9 @@
                 if (isAllChecked) {
                     link.classList.add('disabled');
                     link.innerText = 'All Selected';
-                    const parentCb = document.getElementById('cb-' + path);
-                    if (parentCb) parentCb.checked = true;
+                    // Also check parent if all children checked?
+                    // Not strictly necessary as handleRolePermCheck handles cascading down,
+                    // but cascading up is visual only here.
                 } else {
                     link.classList.remove('disabled');
                     link.innerText = 'Select All';
@@ -1499,6 +1744,13 @@
         const item = document.getElementById(accordionId);
         if (!item) return;
 
+        // We need to recalculate stats based on editingRoleMask because DOM might be filtered
+        // But for summary text, we can try to use the full tree stats if we had access to the node.
+        // Since we don't have easy access to the node here without traversing tree again,
+        // we can rely on DOM if not filtered, or just accept that summary might reflect visible items.
+        // However, to be accurate, we should probably re-render or use a helper.
+
+        // For simplicity/performance, let's count visible checkboxes.
         const checkboxes = Array.from(item.querySelectorAll('.role-perm-check[value]'));
         const total = checkboxes.length;
         const checked = checkboxes.filter(cb => cb.checked).length;
@@ -1515,18 +1767,8 @@
         const scopeType = parseInt(document.getElementById('roleDataScopeSelect').value);
         const customConfig = document.getElementById('roleCustomConfig').value;
 
-        const checkboxes = document.querySelectorAll('.role-perm-check');
-        let newMask = 0n;
-        checkboxes.forEach(cb => {
-            // Only count checkboxes that have a value (actual permissions, not just folders)
-            // FIX: Added check for cb.value !== 'on' to exclude folder nodes
-            if (cb.checked && cb.value && cb.value !== 'on') {
-                newMask |= (1n << BigInt(cb.value));
-            }
-        });
-
-        // Convert to Hex, pad to 32 chars
-        let hex = newMask.toString(16);
+        // Use editingRoleMask directly
+        let hex = editingRoleMask.toString(16);
         while (hex.length < 32) hex = "0" + hex;
 
         await api(`/api/v1/admin/roles/${roleId}`, 'PUT', {
@@ -1543,13 +1785,20 @@
     let currentUsers = [];
 
     async function loadUsers() {
-        const res = await api('/api/v1/admin/users');
         const tbody = document.querySelector('#usersTable tbody');
-        tbody.innerHTML = '';
+        showLoading(tbody);
+        try {
+            const res = await api('/api/v1/admin/users');
+            if (!res) return;
 
-        const canAssign = hasPermission('users:assignRole');
+            if (!res.data || res.data.length === 0) {
+                showEmpty(tbody, 'No users found.');
+                return;
+            }
 
-        if (res && res.data) {
+            tbody.innerHTML = '';
+            const canAssign = hasPermission('users:assignRole');
+
             currentUsers = res.data;
             res.data.forEach(u => {
                 let rolesHtml = '';
@@ -1574,6 +1823,9 @@
                         <td>${assignBtn}</td>
                     </tr>`;
             });
+        } catch (e) {
+            console.error(e);
+            showError(tbody);
         }
     }
 
