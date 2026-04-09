@@ -1,0 +1,22 @@
+# Git worktrees
+.worktrees/
+
+# Environment variables
+.env
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/uniauth
+
+# Test artifacts
+*.test
+*.out
+
+# IDE
+.idea/
+*.iml
+.vscode/
