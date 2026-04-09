@@ -17,9 +17,7 @@
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             font-family: 'Inter', sans-serif;
@@ -38,7 +36,7 @@
             border-radius: 1rem;
             box-shadow: var(--shadow);
             width: 90%;
-            max-width: 24rem; /* approx 384px */
+            max-width: 24rem;
             margin: 1rem;
         }
 
@@ -89,6 +87,13 @@
             background-color: white;
         }
 
+        input[type="text"].code-input {
+            text-align: center;
+            font-size: 1.5rem;
+            letter-spacing: 0.5rem;
+            font-weight: 600;
+        }
+
         button {
             width: 100%;
             padding: 0.75rem;
@@ -103,16 +108,12 @@
             margin-top: 0.5rem;
         }
 
-        button:hover {
-            background-color: var(--primary-hover);
-        }
-
-        button:active {
-            transform: translateY(1px);
-        }
+        button:hover { background-color: var(--primary-hover); }
+        button:active { transform: translateY(1px); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .message {
-            margin-top: 1.5rem;
+            margin-top: 1.25rem;
             text-align: center;
             font-size: 0.875rem;
             padding: 0.75rem;
@@ -133,54 +134,155 @@
             color: #065f46;
             border: 1px solid #a7f3d0;
         }
+
+        /* QR code panel */
+        .qr-wrapper {
+            text-align: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .qr-wrapper img {
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            max-width: 180px;
+        }
+
+        .secret-box {
+            background: #f3f4f6;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 0.625rem 0.75rem;
+            font-family: monospace;
+            font-size: 0.8rem;
+            word-break: break-all;
+            color: #374151;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .hint {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h2>UniAuth</h2>
-            <p>Sign in to your account</p>
+
+        <!-- Panel 1: Password login -->
+        <div id="panel-login" class="panel active">
+            <div class="header">
+                <h2>UniAuth</h2>
+                <p>Sign in to your account</p>
+            </div>
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Enter your username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="••••••••" required
+                       onkeydown="if(event.key==='Enter') login()">
+            </div>
+            <button id="btn-login" onclick="login()">Sign In</button>
+            <div id="msg-login" class="message"></div>
         </div>
 
-        <div class="form-group">
-            <label for="username">Username</label>
-            <input type="text" id="username" placeholder="Enter your username" required>
+        <!-- Panel 2: TOTP setup (first time — show QR) -->
+        <div id="panel-setup" class="panel">
+            <div class="header">
+                <h2>Set Up 2FA</h2>
+                <p>Scan the QR code with Google Authenticator</p>
+            </div>
+            <div class="qr-wrapper">
+                <img id="qr-img" src="" alt="TOTP QR Code">
+            </div>
+            <p class="hint">Can't scan? Enter this secret manually:</p>
+            <div id="totp-secret" class="secret-box"></div>
+            <div class="form-group">
+                <label for="code-setup">Enter the 6-digit code to confirm</label>
+                <input type="text" id="code-setup" class="code-input" maxlength="6"
+                       placeholder="000000" autocomplete="one-time-code"
+                       onkeydown="if(event.key==='Enter') enroll()">
+            </div>
+            <button id="btn-enroll" onclick="enroll()">Verify &amp; Activate</button>
+            <div id="msg-setup" class="message"></div>
+            <span class="back-link" onclick="showPanel('login')">Back to login</span>
         </div>
 
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" placeholder="••••••••" required>
+        <!-- Panel 3: TOTP verify (returning user) -->
+        <div id="panel-verify" class="panel">
+            <div class="header">
+                <h2>Two-Factor Auth</h2>
+                <p>Enter the code from your authenticator app</p>
+            </div>
+            <div class="form-group">
+                <label for="code-verify">6-digit code</label>
+                <input type="text" id="code-verify" class="code-input" maxlength="6"
+                       placeholder="000000" autocomplete="one-time-code"
+                       onkeydown="if(event.key==='Enter') verify()">
+            </div>
+            <button id="btn-verify" onclick="verify()">Verify</button>
+            <div id="msg-verify" class="message"></div>
+            <span class="back-link" onclick="showPanel('login')">Back to login</span>
         </div>
 
-        <button onclick="login()">Sign In</button>
-        <div id="message" class="message"></div>
     </div>
 
     <script>
+        let preAuthToken = null;
+
+        function showPanel(name) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('panel-' + name).classList.add('active');
+        }
+
+        function showMsg(id, text, type) {
+            const el = document.getElementById(id);
+            el.textContent = text;
+            el.className = 'message ' + type;
+        }
+
+        function clearMsg(id) {
+            const el = document.getElementById(id);
+            el.className = 'message';
+            el.textContent = '';
+        }
+
+        // On page load: if cookie already set, run redirect check
+        (async function init() {
+            await processAuthFlow(null);
+        })();
+
         async function processAuthFlow(token) {
             const urlParams = new URLSearchParams(window.location.search);
             const appCode = urlParams.get('redirect');
-
-            if (!appCode) {
-                return;
-            }
+            if (!appCode) return;
 
             try {
                 const response = await fetch(`/api/v1/auth/my-mask?app_code=${encodeURIComponent(appCode)}`);
-
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.data.redirect_url) {
-                        let redirectUrl = data.data.redirect_url;
-
-                        // Use the token passed in (from login) OR the one returned by my-mask (from cookie)
-                        const tokenToUse = token || data.data.token;
-
-                        if (tokenToUse) {
-                            const separator = redirectUrl.includes('?') ? '&' : '?';
-                            redirectUrl += separator + 'token=' + encodeURIComponent(tokenToUse);
-                        }
-                        window.location.href = redirectUrl;
+                    if (data.data && data.data.redirect_url) {
+                        let url = data.data.redirect_url;
+                        const t = token || data.data.token;
+                        if (t) url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(t);
+                        window.location.href = url;
                     }
                 }
             } catch (e) {
@@ -188,34 +290,138 @@
             }
         }
 
-        // Check login on load
-        processAuthFlow();
-
         async function login() {
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
-            const messageDiv = document.getElementById('message');
+            if (!username || !password) return;
+
+            const btn = document.getElementById('btn-login');
+            btn.disabled = true;
+            btn.textContent = 'Signing in…';
+            clearMsg('msg-login');
 
             try {
-                const response = await fetch('/api/v1/auth/login', {
+                const res = await fetch('/api/v1/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
+                const data = await res.json();
 
-                const data = await response.json();
-
-                if (response.ok) {
-                    messageDiv.textContent = 'Login successful!';
-                    messageDiv.className = 'message success';
-                    await processAuthFlow(data.token);
-                } else {
-                    messageDiv.textContent = data.error || 'Login failed';
-                    messageDiv.className = 'message error';
+                if (!res.ok) {
+                    showMsg('msg-login', data.error || 'Login failed', 'error');
+                    return;
                 }
-            } catch (error) {
-                messageDiv.textContent = 'An error occurred';
-                messageDiv.className = 'message error';
+
+                preAuthToken = data.pre_auth_token;
+
+                if (data.status === 'totp_setup_required') {
+                    await loadTOTPSetup();
+                } else if (data.status === 'totp_required') {
+                    showPanel('verify');
+                    document.getElementById('code-verify').focus();
+                } else if (data.token) {
+                    // legacy: full token returned directly
+                    await processAuthFlow(data.token);
+                    window.location.href = '/dashboard';
+                }
+            } catch (e) {
+                showMsg('msg-login', 'Network error', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Sign In';
+            }
+        }
+
+        async function loadTOTPSetup() {
+            try {
+                const res = await fetch('/api/v1/auth/totp/setup', {
+                    headers: { 'Authorization': 'Bearer ' + preAuthToken }
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showMsg('msg-login', data.error || 'Failed to load 2FA setup', 'error');
+                    return;
+                }
+
+                document.getElementById('qr-img').src = data.qr_code_base64;
+                document.getElementById('totp-secret').textContent = data.secret;
+                showPanel('setup');
+                document.getElementById('code-setup').focus();
+            } catch (e) {
+                showMsg('msg-login', 'Failed to load QR code', 'error');
+            }
+        }
+
+        async function enroll() {
+            const code = document.getElementById('code-setup').value.trim();
+            if (code.length !== 6) { showMsg('msg-setup', 'Enter the 6-digit code', 'error'); return; }
+
+            const btn = document.getElementById('btn-enroll');
+            btn.disabled = true;
+            btn.textContent = 'Verifying…';
+            clearMsg('msg-setup');
+
+            try {
+                const res = await fetch('/api/v1/auth/totp/enroll', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + preAuthToken
+                    },
+                    body: JSON.stringify({ code })
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showMsg('msg-setup', data.error || 'Invalid code', 'error');
+                    return;
+                }
+
+                showMsg('msg-setup', '2FA activated! Redirecting…', 'success');
+                await processAuthFlow(data.token);
+                setTimeout(() => { window.location.href = '/dashboard'; }, 800);
+            } catch (e) {
+                showMsg('msg-setup', 'Network error', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Verify & Activate';
+            }
+        }
+
+        async function verify() {
+            const code = document.getElementById('code-verify').value.trim();
+            if (code.length !== 6) { showMsg('msg-verify', 'Enter the 6-digit code', 'error'); return; }
+
+            const btn = document.getElementById('btn-verify');
+            btn.disabled = true;
+            btn.textContent = 'Verifying…';
+            clearMsg('msg-verify');
+
+            try {
+                const res = await fetch('/api/v1/auth/totp/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + preAuthToken
+                    },
+                    body: JSON.stringify({ code })
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showMsg('msg-verify', data.error || 'Invalid code', 'error');
+                    return;
+                }
+
+                await processAuthFlow(data.token);
+                setTimeout(() => { window.location.href = '/dashboard'; }, 200);
+            } catch (e) {
+                showMsg('msg-verify', 'Network error', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Verify';
             }
         }
     </script>
