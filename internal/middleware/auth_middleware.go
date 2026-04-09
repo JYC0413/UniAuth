@@ -13,19 +13,12 @@ import (
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tokenString, err := c.Cookie("auth_token")
-		if err != nil {
-			// Try getting from Header
-			tokenString = c.GetHeader("Authorization")
-			if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
-				tokenString = tokenString[7:]
-			} else if tokenString == "" {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization required"})
-				return
-			}
+		tokenString := extractToken(c)
+		if tokenString == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization required"})
+			return
 		}
 
-		// Check Blacklist
 		var count int64
 		database.DB.Model(&model.SysTokenBlacklist{}).Where("token = ?", tokenString).Count(&count)
 		if count > 0 {
@@ -39,13 +32,29 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Optional: Check if token is expired (ParseToken already does this, but double check logic if needed)
 		if time.Now().After(claims.ExpiresAt.Time) {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token expired"})
+			return
+		}
+
+		// Pre-auth tokens are only valid on TOTP routes — reject them here
+		if claims.TokenType == "pre_auth" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "TOTP verification required"})
 			return
 		}
 
 		c.Set("userID", claims.UserID)
 		c.Next()
 	}
+}
+
+func extractToken(c *gin.Context) string {
+	if token, err := c.Cookie("auth_token"); err == nil {
+		return token
+	}
+	auth := c.GetHeader("Authorization")
+	if len(auth) > 7 && auth[:7] == "Bearer " {
+		return auth[7:]
+	}
+	return ""
 }
