@@ -531,6 +531,7 @@ func ListUsers(c *gin.Context) {
 
 	var users []model.SysUser
 	query := database.DB.
+		Model(&model.SysUser{}).
 		Preload("UserRoles.Role").
 		Preload("UserRoles.App")
 
