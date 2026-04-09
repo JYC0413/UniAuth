@@ -9,33 +9,56 @@ import (
 )
 
 type Config struct {
-	ServerPort  string
-	DatabaseURL string // Support full connection string
-	DBHost      string
-	DBUser      string
-	DBPassword  string
-	DBName      string
-	DBPort      string
-	JWTSecret   string
+	ServerPort         string
+	AppEnv             string // "development" | "production"
+	DatabaseURL        string // Full DSN takes priority over individual fields
+	DBHost             string
+	DBUser             string
+	DBPassword         string
+	DBName             string
+	DBPort             string
+	DBTimezone         string
+	DBSSLMode          string
+	JWTSecret          string
+	CORSAllowedOrigins string // Comma-separated list; empty = no CORS
 }
 
 var AppConfig *Config
 
 func LoadConfig() {
-	// Load .env file if it exists
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using environment variables or defaults")
+		log.Println("No .env file found, using environment variables")
+	}
+
+	// Validate required variables before building config
+	required := []string{"DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME", "JWT_SECRET"}
+	for _, key := range required {
+		if os.Getenv(key) == "" {
+			log.Fatalf("required environment variable %s is not set", key)
+		}
+	}
+
+	appEnv := getEnv("APP_ENV", "development")
+
+	// Default SSL mode based on environment (can be overridden explicitly)
+	defaultSSL := "disable"
+	if appEnv == "production" {
+		defaultSSL = "require"
 	}
 
 	AppConfig = &Config{
-		ServerPort:  getEnv("SERVER_PORT", "8080"),
-		DatabaseURL: getEnv("DATABASE_URL", ""), // Priority 1
-		DBHost:      getEnv("DB_HOST", "localhost"),
-		DBUser:      getEnv("DB_USER", "postgres"),
-		DBPassword:  getEnv("DB_PASSWORD", "postgres"),
-		DBName:      getEnv("DB_NAME", "uniauth"),
-		DBPort:      getEnv("DB_PORT", "5432"),
-		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key"),
+		ServerPort:         getEnv("SERVER_PORT", "8080"),
+		AppEnv:             appEnv,
+		DatabaseURL:        getEnv("DATABASE_URL", ""),
+		DBHost:             getEnv("DB_HOST", ""),
+		DBUser:             getEnv("DB_USER", ""),
+		DBPassword:         getEnv("DB_PASSWORD", ""),
+		DBName:             getEnv("DB_NAME", ""),
+		DBPort:             getEnv("DB_PORT", "5432"),
+		DBTimezone:         getEnv("DB_TIMEZONE", "UTC"),
+		DBSSLMode:          getEnv("DB_SSL_MODE", defaultSSL),
+		JWTSecret:          getEnv("JWT_SECRET", ""),
+		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", ""),
 	}
 }
 
