@@ -37,6 +37,9 @@ func LoadConfig() {
 			log.Fatalf("required environment variable %s is not set", key)
 		}
 	}
+	if len(os.Getenv("JWT_SECRET")) < 32 {
+		log.Fatalf("JWT_SECRET must be at least 32 characters long")
+	}
 
 	appEnv := getEnv("APP_ENV", "development")
 
