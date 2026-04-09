@@ -47,11 +47,30 @@ func ListApps(c *gin.Context) {
 		query = query.Where("id IN (SELECT app_id FROM sys_app_members WHERE user_id = ?)", userID)
 	}
 
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	var total int64
+	query.Count(&total)
+	query = query.Offset(offset).Limit(limit)
+
 	if err := query.Find(&apps).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch apps"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": apps})
+	c.JSON(http.StatusOK, gin.H{
+		"data":  apps,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
 }
 
 type CreateAppRequest struct {
@@ -117,7 +136,10 @@ func CreateAppPermission(c *gin.Context) {
 		nextIndex = *maxIndex + 1
 	}
 
-	// Removed 127 limit check for infinite scalability
+	if nextIndex > 32767 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "permission limit reached (max 32767 per app)"})
+		return
+	}
 
 	perm := model.SysPermission{
 		AppID:          uint64(appID),
@@ -409,7 +431,11 @@ type UpdateRoleRequest struct {
 
 func UpdateRole(c *gin.Context) {
 	roleIDStr := c.Param("role_id")
-	roleID := parseUint(roleIDStr)
+	roleID, err := parseUint(roleIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ID"})
+		return
+	}
 
 	var req UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -417,7 +443,7 @@ func UpdateRole(c *gin.Context) {
 		return
 	}
 
-	err := database.DB.Transaction(func(tx *gorm.DB) error {
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
 		// Update Mask if provided
 		if req.PermissionMask != "" {
 			// First, delete existing masks for this role
@@ -483,9 +509,8 @@ func UpdateRole(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Role updated"})
 }
 
-func parseUint(s string) uint64 {
-	v, _ := strconv.ParseUint(s, 10, 64)
-	return v
+func parseUint(s string) (uint64, error) {
+	return strconv.ParseUint(s, 10, 64)
 }
 
 // --- User Management ---
@@ -521,11 +546,30 @@ func ListUsers(c *gin.Context) {
 		query = query.Where("id = ?", userID)
 	}
 
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	var total int64
+	query.Count(&total)
+	query = query.Offset(offset).Limit(limit)
+
 	if err := query.Find(&users).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": users})
+	c.JSON(http.StatusOK, gin.H{
+		"data":  users,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
 }
 
 type CreateUserRequest struct {
@@ -685,8 +729,10 @@ func CheckAdminPermission(c *gin.Context) {
 		}
 	}
 
-	// 3. Check if mask is non-zero (Basic check: is an admin)
-	if finalMask.Cmp(big.NewInt(0)) == 0 {
+	// 3. Check that bit 0 (admin.access) is set in the uniauth-admin mask.
+	// Bit 0 is reserved for "admin.access" — the first permission created by setup_admin.go.
+	adminBit := new(big.Int).SetBit(new(big.Int), 0, 1)
+	if new(big.Int).And(finalMask, adminBit).Cmp(adminBit) != 0 {
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
