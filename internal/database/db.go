@@ -3,8 +3,11 @@ package database
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"UniAuth/internal/config"
+	"UniAuth/internal/model"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -16,12 +19,15 @@ func ConnectDB() {
 	if config.AppConfig.DatabaseURL != "" {
 		dsn = config.AppConfig.DatabaseURL
 	} else {
-		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Shanghai",
+		dsn = fmt.Sprintf(
+			"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
 			config.AppConfig.DBHost,
 			config.AppConfig.DBUser,
 			config.AppConfig.DBPassword,
 			config.AppConfig.DBName,
 			config.AppConfig.DBPort,
+			config.AppConfig.DBSSLMode,
+			config.AppConfig.DBTimezone,
 		)
 	}
 
@@ -32,17 +38,27 @@ func ConnectDB() {
 	}
 
 	log.Println("Database connected successfully")
+}
 
-	// Auto Migrate
-	//err = DB.AutoMigrate(
-	//	&model.SysApp{},
-	//	&model.SysPermission{},
-	//	&model.SysRole{},
-	//	&model.SysUser{},
-	//	&model.SysUserRole{},
-	//	&model.SysRoleDataScope{},
-	//)
-	//if err != nil {
-	//	log.Fatal("Failed to migrate database: ", err)
-	//}
+// StartBlacklistCleanup deletes expired token blacklist entries.
+// Runs once immediately on startup, then every 24 hours in a background goroutine.
+func StartBlacklistCleanup() {
+	cleanupOnce := func() {
+		result := DB.Where("expires_at < ?", time.Now()).Delete(&model.SysTokenBlacklist{})
+		if result.Error != nil {
+			log.Printf("Blacklist cleanup error: %v", result.Error)
+		} else {
+			log.Printf("Blacklist cleanup: deleted %d expired entries", result.RowsAffected)
+		}
+	}
+
+	cleanupOnce()
+
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			cleanupOnce()
+		}
+	}()
 }
