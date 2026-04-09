@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -564,6 +565,7 @@ func ListUsers(c *gin.Context) {
 	query = query.Offset(offset).Limit(limit)
 
 	if err := query.Find(&users).Error; err != nil {
+		log.Printf("ListUsers DB error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
 		return
 	}
