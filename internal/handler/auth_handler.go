@@ -35,47 +35,40 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Determine Data Scope (Simplified Logic: Take the highest scope from roles)
-	// In a real system, you might merge scopes or return a list.
-	// Here we just take the max scope_type found in user's roles for simplicity.
-	var maxScope int = 1 // Default Self
+	// Determine DataScope (highest scope across all user roles)
+	maxScope := 1
 	var userRoles []model.SysUserRole
 	if err := database.DB.Preload("Role.DataScope").Where("user_id = ?", user.ID).Find(&userRoles).Error; err == nil {
 		for _, ur := range userRoles {
-			if ur.Role.DataScope != nil {
-				if ur.Role.DataScope.ScopeType > maxScope {
-					maxScope = ur.Role.DataScope.ScopeType
-				}
+			if ur.Role.DataScope != nil && ur.Role.DataScope.ScopeType > maxScope {
+				maxScope = ur.Role.DataScope.ScopeType
 			}
 		}
 	}
+	scopeMap := map[int]string{1: "SELF", 2: "DEPT", 3: "ALL", 4: "CUSTOM"}
+	dataScope := scopeMap[maxScope]
 
-	scopeMap := map[int]string{
-		1: "SELF",
-		2: "DEPT",
-		3: "ALL",
-		4: "CUSTOM",
-	}
-	dataScopeStr := scopeMap[maxScope]
-
-	token, err := utils.GenerateToken(user.ID, dataScopeStr)
+	// Issue a short-lived pre-auth token; TOTP verification issues the full token
+	preAuthToken, err := utils.GeneratePreAuthToken(user.ID, dataScope)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	// Set HttpOnly Cookie
-	c.SetCookie("auth_token", token, 3600*24, "/", "", false, true) // Secure should be true in production
-
-	c.JSON(http.StatusOK, gin.H{
-		"message":    "Login successful",
-		"data_scope": dataScopeStr,
-		"token":      token,
-	})
+	if user.TOTPSecret == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status":         "totp_setup_required",
+			"pre_auth_token": preAuthToken,
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"status":         "totp_required",
+			"pre_auth_token": preAuthToken,
+		})
+	}
 }
 
 func Logout(c *gin.Context) {
-	// Get token from cookie or header
 	tokenString, err := c.Cookie("auth_token")
 	if err != nil {
 		tokenString = c.GetHeader("Authorization")
@@ -85,10 +78,8 @@ func Logout(c *gin.Context) {
 	}
 
 	if tokenString != "" {
-		// Parse token to get expiration time
 		claims, err := utils.ParseToken(tokenString)
 		if err == nil {
-			// Add to blacklist
 			blacklistEntry := model.SysTokenBlacklist{
 				Token:     tokenString,
 				ExpiresAt: claims.ExpiresAt.Time,
