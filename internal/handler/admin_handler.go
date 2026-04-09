@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -252,7 +253,9 @@ func BatchCreateAppPermissions(c *gin.Context) {
 					if maxIndex != nil {
 						nextIndex = *maxIndex + 1
 					}
-					// Removed 127 limit check
+					if nextIndex > 32767 {
+						return fmt.Errorf("permission limit reached (max 32767 per app)")
+					}
 					perm.BitIndex = int16(nextIndex)
 				}
 

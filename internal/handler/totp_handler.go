@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"image/png"
 	"net/http"
+	"time"
 
 	"UniAuth/internal/config"
 	"UniAuth/internal/database"
@@ -31,7 +32,7 @@ func TOTPSetup(c *gin.Context) {
 		return
 	}
 
-	if user.TOTPSecret != nil {
+	if user.TOTPSecret != nil && user.TOTPEnabled {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "TOTP already configured, contact admin to reset"})
 		return
 	}
@@ -106,6 +107,9 @@ func TOTPEnroll(c *gin.Context) {
 		return
 	}
 
+	// Blacklist the pre_auth_token to prevent replay within its 5-minute window
+	blacklistPreAuthToken(c)
+
 	token, err := utils.GenerateToken(userID, dataScope)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
@@ -142,6 +146,9 @@ func TOTPVerify(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid TOTP code"})
 		return
 	}
+
+	// Blacklist the pre_auth_token to prevent replay within its 5-minute window
+	blacklistPreAuthToken(c)
 
 	token, err := utils.GenerateToken(userID, dataScope)
 	if err != nil {
@@ -190,5 +197,23 @@ func setAuthCookie(c *gin.Context, token string) {
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+// blacklistPreAuthToken extracts the Bearer token from Authorization header and adds it to the blacklist.
+func blacklistPreAuthToken(c *gin.Context) {
+	raw := c.GetHeader("Authorization")
+	if len(raw) <= 7 || raw[:7] != "Bearer " {
+		return
+	}
+	rawToken := raw[7:]
+	claims, err := utils.ParseToken(rawToken)
+	if err != nil {
+		return
+	}
+	database.DB.Create(&model.SysTokenBlacklist{
+		Token:     rawToken,
+		ExpiresAt: claims.ExpiresAt.Time,
+		CreatedAt: time.Now(),
 	})
 }

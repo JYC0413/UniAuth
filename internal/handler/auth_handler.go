@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"UniAuth/internal/config"
 	"UniAuth/internal/database"
 	"UniAuth/internal/model"
 	"UniAuth/internal/utils"
@@ -55,7 +56,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	if user.TOTPSecret == nil {
+	if !user.TOTPEnabled {
 		c.JSON(http.StatusOK, gin.H{
 			"status":         "totp_setup_required",
 			"pre_auth_token": preAuthToken,
@@ -89,7 +90,8 @@ func Logout(c *gin.Context) {
 		}
 	}
 
-	c.SetCookie("auth_token", "", -1, "/", "", false, true)
+	secure := config.AppConfig.AppEnv == "production"
+	c.SetCookie("auth_token", "", -1, "/", "", secure, true)
 	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
 }
 
