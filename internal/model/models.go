@@ -80,6 +80,8 @@ type SysUser struct {
 	Email    string    `gorm:"type:varchar(100);uniqueIndex" json:"email"`
 	Password string    `gorm:"type:varchar(255);not null" json:"-"`   // Store hashed password
 	Status   int16     `gorm:"type:smallint;default:1" json:"status"` // 1:正常 0:禁用
+	TOTPSecret  *string       `gorm:"type:varchar(64)" json:"-"`                          // NULL until setup; never exposed in JSON
+	TOTPEnabled bool          `gorm:"type:boolean;not null;default:false" json:"totp_enabled"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
